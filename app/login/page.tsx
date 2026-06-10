@@ -274,6 +274,14 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
+  );
+}
+
+function LoginPageInner() {
+  return (
     <Suspense>
       <LoginContent />
     </Suspense>

@@ -314,6 +314,14 @@ function ResetPasswordContent() {
 
 export default function ResetPasswordPage() {
   return (
+    <Suspense fallback={null}>
+      <ResetPasswordPageInner />
+    </Suspense>
+  );
+}
+
+function ResetPasswordPageInner() {
+  return (
     <Suspense>
       <ResetPasswordContent />
     </Suspense>

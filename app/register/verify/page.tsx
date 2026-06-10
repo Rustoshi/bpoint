@@ -307,6 +307,14 @@ function VerifyContent() {
 
 export default function VerifyPage() {
   return (
+    <Suspense fallback={null}>
+      <VerifyPageInner />
+    </Suspense>
+  );
+}
+
+function VerifyPageInner() {
+  return (
     <Suspense>
       <VerifyContent />
     </Suspense>

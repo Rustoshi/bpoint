@@ -119,6 +119,14 @@ function SentContent() {
 
 export default function SentPage() {
   return (
+    <Suspense fallback={null}>
+      <SentPageInner />
+    </Suspense>
+  );
+}
+
+function SentPageInner() {
+  return (
     <Suspense>
       <SentContent />
     </Suspense>

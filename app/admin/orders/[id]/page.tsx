@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -222,6 +222,14 @@ function DeliverySection({
 }
 
 export default function AdminOrderDetailPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminOrderDetailPageInner />
+    </Suspense>
+  );
+}
+
+function AdminOrderDetailPageInner() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();

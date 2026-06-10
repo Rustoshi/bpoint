@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -56,6 +56,14 @@ function fmtTimeAgo(iso: string): string {
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AdminMessagesPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminMessagesPageInner />
+    </Suspense>
+  );
+}
+
+function AdminMessagesPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeUserId = searchParams.get("userId");
