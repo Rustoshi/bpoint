@@ -76,25 +76,26 @@ export async function GET(req: NextRequest) {
       fund:        ["approved", "rejected"],
     };
 
-    function buildQuery(key: string) {
+    function buildQuery(key: string): Record<string, unknown> {
       if (statusFilter === "pending") return { status: "pending" };
       if (statusFilter === "active")  return { status: { $in: activeStatuses[key] } };
       if (statusFilter === "done")    return { status: { $in: doneStatuses[key] } };
       return {};
     }
 
-    const fetch = (model: typeof TradeOrder, key: string) =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fetch = (model: any, key: string) =>
       typeFilter !== "all" && typeFilter !== key
         ? Promise.resolve([])
         : model.find(buildQuery(key)).sort({ createdAt: -1 }).lean();
 
     const [trades, recovery, consignment, editing, lipsync, funds] = await Promise.all([
-      fetch(TradeOrder as typeof TradeOrder, "trade"),
-      fetch(RecoveryRequest as typeof TradeOrder, "recovery"),
-      fetch(ConsignmentOrder as typeof TradeOrder, "consignment"),
-      fetch(EditingOrder as typeof TradeOrder, "editing"),
-      fetch(LipsyncOrder as typeof TradeOrder, "lipsync"),
-      fetch(FundRequest as typeof TradeOrder, "fund"),
+      fetch(TradeOrder,       "trade"),
+      fetch(RecoveryRequest,  "recovery"),
+      fetch(ConsignmentOrder, "consignment"),
+      fetch(EditingOrder,     "editing"),
+      fetch(LipsyncOrder,     "lipsync"),
+      fetch(FundRequest,      "fund"),
     ]);
 
     // ── Resolve user names ───────────────────────────────────────────────────

@@ -105,7 +105,7 @@ UserSchema.index({ createdAt: -1 });
 // Prevent returning passwordHash in JSON responses
 UserSchema.set("toJSON", {
   transform(_doc, ret) {
-    delete ret.passwordHash;
+    delete (ret as unknown as Record<string, unknown>).passwordHash;
     return ret;
   },
 });

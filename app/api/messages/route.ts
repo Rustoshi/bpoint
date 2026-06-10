@@ -77,12 +77,12 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
 
-    const message = await Message.create({
+    const message = await new Message({
       userId,
       fromAdmin: false,
       body: trimmed,
       readAt: null,
-    });
+    }).save();
 
     const fmt = new Intl.DateTimeFormat("en-NG", {
       day: "numeric", month: "short", year: "numeric",

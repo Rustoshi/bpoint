@@ -13,7 +13,7 @@ type BankForm = { accountNumber: string; bankName: string; nameOnBank: string };
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
-function authHeader() {
+function authHeader(): Record<string, string> {
   const token = sessionStorage.getItem("access_token") ?? "";
   return token ? { Authorization: `Bearer ${token}` } : {};
 }

@@ -378,7 +378,7 @@ export default function TradePage() {
               <div className="flex gap-2 mb-5">
                 {(["ecode", "physical"] as const).map((type) => {
                   const label = type === "ecode" ? "E-code" : "Scratched Card (Photo)";
-                  const disabled = selectedBrand ? !selectedBrand.accepts.includes(type) : false;
+                  const disabled = selectedBrand ? !(selectedBrand.accepts as readonly string[]).includes(type) : false;
                   return (
                     <button
                       key={type}
