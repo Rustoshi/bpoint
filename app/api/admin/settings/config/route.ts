@@ -22,7 +22,12 @@ type ConfigUpdates = {
   consignmentFeeNGN?: number;
   editingFeeNGN?: number;
   lipsyncFeeNGN?: number;
+  supportEmail?: string;
+  whatsappNumber?: string;
 };
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const WHATSAPP_RE = /^\d{8,15}$/;
 
 export async function PATCH(req: NextRequest) {
   if (!requireAdmin(req)) {
@@ -85,6 +90,16 @@ export async function PATCH(req: NextRequest) {
     if (r instanceof NextResponse) return r;
     updates.lipsyncFeeNGN = r;
   }
+  if (body.supportEmail !== undefined) {
+    const v = String(body.supportEmail).trim().toLowerCase();
+    if (!EMAIL_RE.test(v)) return NextResponse.json({ success: false, message: "Support email is invalid." }, { status: 400 });
+    updates.supportEmail = v;
+  }
+  if (body.whatsappNumber !== undefined) {
+    const v = String(body.whatsappNumber).replace(/[\s+\-()]/g, "");
+    if (!WHATSAPP_RE.test(v)) return NextResponse.json({ success: false, message: "WhatsApp number must be 8–15 digits (country code included, no '+')." }, { status: 400 });
+    updates.whatsappNumber = v;
+  }
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ success: false, message: "No changes provided." }, { status: 400 });
@@ -107,6 +122,8 @@ export async function PATCH(req: NextRequest) {
         consignmentFeeNGN: Number(config.consignmentFeeNGN ?? 0),
         editingFeeNGN:     Number(config.editingFeeNGN     ?? 0),
         lipsyncFeeNGN:     Number(config.lipsyncFeeNGN     ?? 0),
+        supportEmail:      String(config.supportEmail      ?? ""),
+        whatsappNumber:    String(config.whatsappNumber    ?? ""),
       },
     });
   } catch (err) {

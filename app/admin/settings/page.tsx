@@ -15,6 +15,8 @@ type Config = {
   consignmentFeeNGN: number;
   editingFeeNGN: number;
   lipsyncFeeNGN: number;
+  supportEmail: string;
+  whatsappNumber: string;
 };
 
 type Rate = {
@@ -138,6 +140,13 @@ export default function AdminSettingsPage() {
   const [ratesErr,    setRatesErr]    = useState("");
   const [ratesOk,     setRatesOk]     = useState("");
 
+  // Public contact info
+  const [supportEmail,   setSupportEmail]   = useState("");
+  const [whatsappNumber, setWhatsappNumber] = useState("");
+  const [contactSaving, setContactSaving] = useState(false);
+  const [contactErr,    setContactErr]    = useState("");
+  const [contactOk,     setContactOk]     = useState("");
+
   // Admin password
   const [currentPw, setCurrentPw]   = useState("");
   const [newPw,     setNewPw]       = useState("");
@@ -162,6 +171,8 @@ export default function AdminSettingsPage() {
       setConsignmentFee(String(c.consignmentFeeNGN ?? ""));
       setEditingFee(String(c.editingFeeNGN ?? ""));
       setLipsyncFee(String(c.lipsyncFeeNGN ?? ""));
+      setSupportEmail(c.supportEmail ?? "");
+      setWhatsappNumber(c.whatsappNumber ?? "");
       setRateDrafts((data.rates as Rate[]).map((r) => ({
         key:           r.id,
         id:            r.id,
@@ -192,6 +203,30 @@ export default function AdminSettingsPage() {
     setConsignmentFee(String(c.consignmentFeeNGN ?? ""));
     setEditingFee(String(c.editingFeeNGN ?? ""));
     setLipsyncFee(String(c.lipsyncFeeNGN ?? ""));
+    setSupportEmail(c.supportEmail ?? "");
+    setWhatsappNumber(c.whatsappNumber ?? "");
+  }
+
+  // ── Save contact info ──────────────────────────────────────────────────────
+  async function saveContact() {
+    setContactSaving(true); setContactErr(""); setContactOk("");
+    try {
+      const res = await fetch("/api/admin/settings/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...authHeader() },
+        body: JSON.stringify({
+          supportEmail:   supportEmail.trim(),
+          whatsappNumber: whatsappNumber.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message ?? "Failed to save.");
+      applyConfig(data.config as Config);
+      setContactOk("Contact info updated.");
+      setTimeout(() => setContactOk(""), 2500);
+    } catch (e) {
+      setContactErr(e instanceof Error ? e.message : "Failed to save.");
+    } finally { setContactSaving(false); }
   }
 
   // ── Save bank ─────────────────────────────────────────────────────────────
@@ -514,6 +549,42 @@ export default function AdminSettingsPage() {
             className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-[13px] font-semibold disabled:opacity-50"
           >
             {ratesSaving ? "Saving…" : "Save gift card rates"}
+          </button>
+        </div>
+      </SectionCard>
+
+      {/* ── Public contact info ── */}
+      <SectionCard
+        title="Public contact info"
+        description="Email and WhatsApp number shown on the public site (Contact page, footer, etc.)."
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Input
+            label="Support email"
+            type="email"
+            value={supportEmail}
+            onChange={setSupportEmail}
+            placeholder="support@bpoint.pro"
+          />
+          <Input
+            label="WhatsApp number"
+            value={whatsappNumber}
+            onChange={setWhatsappNumber}
+            placeholder="2348012345678"
+            mono
+          />
+        </div>
+        <p className="text-[11px] text-slate-500 mt-2">
+          WhatsApp number must include the country code, digits only (no <code>+</code> or spaces) — e.g. <code>2348012345678</code>.
+        </p>
+        <div className="mt-3"><Status error={contactErr} success={contactOk} /></div>
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={saveContact}
+            disabled={contactSaving}
+            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-[13px] font-semibold disabled:opacity-50"
+          >
+            {contactSaving ? "Saving…" : "Save contact info"}
           </button>
         </div>
       </SectionCard>

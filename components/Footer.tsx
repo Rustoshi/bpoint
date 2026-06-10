@@ -1,14 +1,14 @@
-"use client";
-
 import Link from "next/link";
+import { loadContactInfo } from "@/lib/contact";
 
 const navigation = {
   services: [
-    { name: "Trade Gift Cards", href: "#" },
-    { name: "Code Recovery", href: "#" },
-    { name: "Consignment Video", href: "#" },
-    { name: "Photo & Doc Editing", href: "#" },
-    { name: "View Pricing", href: "#" },
+    { name: "Trade Gift Cards",     href: "/services" },
+    { name: "Code Recovery",        href: "/services" },
+    { name: "Consignment Video",    href: "/services" },
+    { name: "Photo & Doc Editing",  href: "/services" },
+    { name: "Lipsync Video",        href: "/services" },
+    { name: "View Pricing",         href: "/pricing" },
   ],
 };
 
@@ -57,7 +57,9 @@ const acceptedBrands = [
   "Netflix", "Spotify", "Razer Gold", "Nike",
 ];
 
-export default function Footer() {
+export default async function Footer() {
+  const contact = await loadContactInfo();
+  const whatsappHref = contact.whatsappNumber ? contact.whatsappLink : "#";
   return (
     <footer className="relative w-full bg-slate-900 text-slate-400 overflow-hidden">
       {/* Top border accent */}
@@ -117,16 +119,21 @@ export default function Footer() {
 
             {/* Social icons */}
             <div className="flex items-center gap-2">
-              {socials.map((s) => (
-                <a
-                  key={s.name}
-                  href={s.href}
-                  aria-label={s.name}
-                  className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 hover:border-slate-600 transition-all duration-150"
-                >
-                  {s.icon}
-                </a>
-              ))}
+              {socials.map((s) => {
+                const href = s.name === "WhatsApp" ? whatsappHref : s.href;
+                return (
+                  <a
+                    key={s.name}
+                    href={href}
+                    target={href === "#" ? undefined : "_blank"}
+                    rel={href === "#" ? undefined : "noopener noreferrer"}
+                    aria-label={s.name}
+                    className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 hover:border-slate-600 transition-all duration-150"
+                  >
+                    {s.icon}
+                  </a>
+                );
+              })}
             </div>
 
             {/* Trust badge */}

@@ -14,6 +14,8 @@ export interface ISiteConfig extends Document {
   bankAccountName: string;
   bankAccountNumber: string;
   bankName: string;
+  supportEmail: string;
+  whatsappNumber: string;
   updatedAt: Date;
 }
 
@@ -28,6 +30,8 @@ const SiteConfigSchema = new Schema<ISiteConfig>(
     bankAccountName: { type: String, default: "BPoint Nigeria Ltd", trim: true },
     bankAccountNumber: { type: String, default: "0000000000", trim: true },
     bankName: { type: String, default: "GTBank", trim: true },
+    supportEmail:   { type: String, default: "support@bpoint.pro", trim: true, lowercase: true },
+    whatsappNumber: { type: String, default: "2348000000000",     trim: true },
   },
   { timestamps: true }
 );
@@ -47,6 +51,8 @@ const DEFAULTS = {
   bankAccountName:   "BPoint Nigeria Ltd",
   bankAccountNumber: "0000000000",
   bankName:          "GTBank",
+  supportEmail:      "support@bpoint.pro",
+  whatsappNumber:    "2348000000000",
 };
 
 /**

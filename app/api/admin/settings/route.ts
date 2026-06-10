@@ -32,6 +32,8 @@ export async function GET(req: NextRequest) {
         consignmentFeeNGN: Number(config.consignmentFeeNGN ?? 0),
         editingFeeNGN:     Number(config.editingFeeNGN     ?? 0),
         lipsyncFeeNGN:     Number(config.lipsyncFeeNGN     ?? 0),
+        supportEmail:      String(config.supportEmail      ?? ""),
+        whatsappNumber:    String(config.whatsappNumber    ?? ""),
       },
       rates: rates.map((r) => ({
         id:             String(r._id),
