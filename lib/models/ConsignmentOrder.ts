@@ -12,6 +12,7 @@ export interface IConsignmentOrder extends Document {
   videoInstructions: string;
   deliveryAddress?: string;
   additionalNotes?: string;
+  receiverImageUrl?: string;
   feeChargedNGN: number;
   proofVideoUrl?: string;
   status: ConsignmentStatus;
@@ -28,6 +29,7 @@ const ConsignmentOrderSchema = new Schema<IConsignmentOrder>(
     videoInstructions: { type: String, required: true, trim: true, minlength: 10 },
     deliveryAddress: { type: String, trim: true },
     additionalNotes: { type: String, trim: true },
+    receiverImageUrl: { type: String, trim: true },
     feeChargedNGN: { type: Number, required: true, min: 0 },
     proofVideoUrl: { type: String },
     status: {

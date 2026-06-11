@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
 
     // ── Parse body ────────────────────────────────────────────────────────────
     const body = await req.json();
-    const { boxDescription, videoInstructions, deliveryAddress, additionalNotes } = body;
+    const { boxDescription, videoInstructions, deliveryAddress, additionalNotes, receiverImageUrl } = body;
 
     // ── Validate ──────────────────────────────────────────────────────────────
     if (!boxDescription || String(boxDescription).trim().length < 20) {
@@ -36,6 +36,12 @@ export async function POST(req: NextRequest) {
     if (!videoInstructions || String(videoInstructions).trim().length < 10) {
       return NextResponse.json(
         { success: false, message: "Video instructions must be at least 10 characters." },
+        { status: 400 }
+      );
+    }
+    if (!receiverImageUrl || !/^https?:\/\/\S+$/i.test(String(receiverImageUrl).trim())) {
+      return NextResponse.json(
+        { success: false, message: "Please upload a picture of the receiver." },
         { status: 400 }
       );
     }
@@ -75,6 +81,7 @@ export async function POST(req: NextRequest) {
       videoInstructions: String(videoInstructions).trim(),
       deliveryAddress: deliveryAddress ? String(deliveryAddress).trim() : undefined,
       additionalNotes: additionalNotes ? String(additionalNotes).trim() : undefined,
+      receiverImageUrl: String(receiverImageUrl).trim(),
       feeChargedNGN: feeNGN,
       status: "pending",
     });

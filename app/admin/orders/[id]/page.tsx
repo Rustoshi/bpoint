@@ -451,6 +451,50 @@ function AdminOrderDetailPageInner() {
               <Field label="Delivery address" value={order.deliveryAddress} />
               <Field label="Additional notes" value={order.additionalNotes} />
             </div>
+            {order.receiverImageUrl && (
+              <div>
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Receiver picture</p>
+                <div className="mt-2 flex flex-col sm:flex-row gap-3 items-start">
+                  <a
+                    href={order.receiverImageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-40 h-40 bg-slate-800 border border-slate-700 rounded-xl overflow-hidden hover:border-slate-500 transition-colors flex-shrink-0"
+                    title="Open original"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={order.receiverImageUrl}
+                      alt="Receiver"
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  </a>
+                  <div className="flex flex-col gap-2">
+                    <a
+                      href={order.receiverImageUrl}
+                      download
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[12px] font-semibold"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Download
+                    </a>
+                    <a
+                      href={order.receiverImageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[12px] font-semibold"
+                    >
+                      Open original ↗
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
             {order.proofVideoUrl && (
               <Field label="Proof video" value={<a href={order.proofVideoUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline text-[12px] break-all">{order.proofVideoUrl}</a>} />
             )}

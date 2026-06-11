@@ -9,21 +9,21 @@ import { uploadManyToCloudinary } from "@/lib/cloudinary";
 
 const BRANDS = [
   { slug: "amazon",      name: "Amazon",           color: "bg-amber-500",   accepts: ["ecode", "physical"] },
-  { slug: "itunes",      name: "iTunes / Apple",   color: "bg-pink-500",    accepts: ["ecode"] },
-  { slug: "google-play", name: "Google Play",      color: "bg-green-500",   accepts: ["ecode"] },
-  { slug: "steam",       name: "Steam",            color: "bg-slate-700",   accepts: ["ecode"] },
-  { slug: "xbox",        name: "Xbox",             color: "bg-green-600",   accepts: ["ecode"] },
+  { slug: "itunes",      name: "iTunes / Apple",   color: "bg-pink-500",    accepts: ["ecode", "physical"] },
+  { slug: "google-play", name: "Google Play",      color: "bg-green-500",   accepts: ["ecode", "physical"] },
+  { slug: "steam",       name: "Steam",            color: "bg-slate-700",   accepts: ["ecode", "physical"] },
+  { slug: "xbox",        name: "Xbox",             color: "bg-green-600",   accepts: ["ecode", "physical"] },
   { slug: "walmart",     name: "Walmart",          color: "bg-blue-600",    accepts: ["ecode", "physical"] },
-  { slug: "ebay",        name: "eBay",             color: "bg-yellow-500",  accepts: ["ecode"] },
-  { slug: "netflix",     name: "Netflix",          color: "bg-red-600",     accepts: ["ecode"] },
+  { slug: "ebay",        name: "eBay",             color: "bg-yellow-500",  accepts: ["ecode", "physical"] },
+  { slug: "netflix",     name: "Netflix",          color: "bg-red-600",     accepts: ["ecode", "physical"] },
   { slug: "nike",        name: "Nike",             color: "bg-slate-900",   accepts: ["ecode", "physical"] },
   { slug: "sephora",     name: "Sephora",          color: "bg-black",       accepts: ["ecode", "physical"] },
   { slug: "target",      name: "Target",           color: "bg-red-500",     accepts: ["ecode", "physical"] },
   { slug: "best-buy",    name: "Best Buy",         color: "bg-blue-700",    accepts: ["ecode", "physical"] },
-  { slug: "visa",        name: "Visa",             color: "bg-blue-800",    accepts: ["physical"] },
-  { slug: "mastercard",  name: "Mastercard",       color: "bg-orange-600",  accepts: ["physical"] },
-  { slug: "amex",        name: "American Express", color: "bg-cyan-700",    accepts: ["physical"] },
-  { slug: "razer-gold",  name: "Razer Gold",       color: "bg-lime-600",    accepts: ["ecode"] },
+  { slug: "visa",        name: "Visa",             color: "bg-blue-800",    accepts: ["ecode", "physical"] },
+  { slug: "mastercard",  name: "Mastercard",       color: "bg-orange-600",  accepts: ["ecode", "physical"] },
+  { slug: "amex",        name: "American Express", color: "bg-cyan-700",    accepts: ["ecode", "physical"] },
+  { slug: "razer-gold",  name: "Razer Gold",       color: "bg-lime-600",    accepts: ["ecode", "physical"] },
 ] as const;
 
 type BrandSlug = (typeof BRANDS)[number]["slug"];

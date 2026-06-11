@@ -1,10 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { DataTable, type Column } from "@/components/dashboard/DataTable";
 import { useUser } from "@/lib/hooks/useUser";
+import { uploadToCloudinary } from "@/lib/cloudinary";
+
+const RECEIVER_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_RECEIVER_SIZE = 8 * 1024 * 1024; // 8 MB
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -159,11 +163,36 @@ export default function ConsignmentPage() {
   const [videoInstructions, setVideoInstructions] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [additionalNotes, setAdditionalNotes] = useState("");
+  const [receiverFile, setReceiverFile] = useState<File | null>(null);
+  const [receiverPreview, setReceiverPreview] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [uploadPct, setUploadPct] = useState(0);
   const [serverError, setServerError] = useState("");
   const [success, setSuccess] = useState<{ orderId: string; feeCharged: number } | null>(null);
+
+  const receiverInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    return () => { if (receiverPreview) URL.revokeObjectURL(receiverPreview); };
+  }, [receiverPreview]);
+
+  function handleReceiverFile(file: File | null) {
+    if (!file) return;
+    if (!RECEIVER_TYPES.includes(file.type)) {
+      setErrors((e) => ({ ...e, receiverImage: "Only JPG, PNG, or WEBP images are accepted." }));
+      return;
+    }
+    if (file.size > MAX_RECEIVER_SIZE) {
+      setErrors((e) => ({ ...e, receiverImage: "Image must be under 8 MB." }));
+      return;
+    }
+    setErrors((e) => ({ ...e, receiverImage: "" }));
+    setReceiverFile(file);
+    if (receiverPreview) URL.revokeObjectURL(receiverPreview);
+    setReceiverPreview(URL.createObjectURL(file));
+  }
 
   const fmtNGN = (n: number) =>
     new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", minimumFractionDigits: 0 }).format(n);
@@ -172,6 +201,7 @@ export default function ConsignmentPage() {
     const errs: Record<string, string> = {};
     if (boxDescription.trim().length < 20) errs.boxDescription = "Please describe the box contents in at least 20 characters.";
     if (videoInstructions.trim().length < 10) errs.videoInstructions = "Please provide video instructions of at least 10 characters.";
+    if (!receiverFile) errs.receiverImage = "Please upload a picture of the receiver.";
     if (!agreed) errs.agreed = "Please accept the terms to proceed.";
     return errs;
   }
@@ -190,6 +220,13 @@ export default function ConsignmentPage() {
 
     setSubmitting(true);
     try {
+      // 1) Browser-direct Cloudinary upload.
+      setUploadPct(1);
+      const receiverAsset = await uploadToCloudinary(receiverFile!, {
+        folder: "bpoint/consignment-receivers",
+        onProgress: setUploadPct,
+      });
+
       const token = sessionStorage.getItem("access_token") ?? "";
       const res = await fetch("/api/consignment/submit", {
         method: "POST",
@@ -202,6 +239,7 @@ export default function ConsignmentPage() {
           videoInstructions: videoInstructions.trim(),
           deliveryAddress: deliveryAddress.trim() || undefined,
           additionalNotes: additionalNotes.trim() || undefined,
+          receiverImageUrl: receiverAsset.url,
         }),
       });
       const data = await res.json();
@@ -211,16 +249,19 @@ export default function ConsignmentPage() {
       }
       setSuccess({ orderId: String(data.orderId), feeCharged: data.feeChargedNGN });
       loadOrders();
-    } catch {
-      setServerError("Network error. Please check your connection and try again.");
+    } catch (err) {
+      setServerError(err instanceof Error ? err.message : "Upload or submission failed. Please try again.");
     } finally {
       setSubmitting(false);
+      setUploadPct(0);
     }
   }
 
   function resetForm() {
     setBoxDescription(""); setVideoInstructions(""); setDeliveryAddress("");
     setAdditionalNotes(""); setAgreed(false); setErrors({});
+    if (receiverPreview) URL.revokeObjectURL(receiverPreview);
+    setReceiverFile(null); setReceiverPreview(null);
     setServerError(""); setSuccess(null);
   }
 
@@ -259,7 +300,7 @@ export default function ConsignmentPage() {
             <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <p className="text-[13px] text-blue-700">Expected delivery: <strong>24–48 hours</strong></p>
+            <p className="text-[13px] text-blue-700">Expected delivery: <strong>3–4 hours</strong></p>
           </div>
 
           <div className="flex items-center gap-2 p-3.5 rounded-xl bg-slate-50 border border-slate-100 w-full mb-6">
@@ -377,8 +418,70 @@ export default function ConsignmentPage() {
               </div>
             </SectionCard>
 
-            {/* Step 3: Optional Details */}
-            <SectionCard step={3} title="Additional Details (Optional)">
+            {/* Step 3: Receiver Picture */}
+            <SectionCard step={3} title="Receiver Picture">
+              <div className="flex flex-col gap-2.5">
+                <label className="text-[13px] font-semibold text-slate-700">
+                  Upload a picture of the receiver <span className="text-red-400">*</span>
+                </label>
+                <p className="text-[12px] text-slate-400 -mt-1">
+                  A clear photo of the person who will be receiving the box. JPG, PNG, or WEBP — max 8 MB.
+                </p>
+
+                {!receiverFile ? (
+                  <button
+                    type="button"
+                    onClick={() => receiverInputRef.current?.click()}
+                    className={`w-full border-2 border-dashed rounded-xl p-6 flex flex-col items-center gap-2 transition-colors
+                      ${errors.receiverImage ? "border-red-300 bg-red-50/40" : "border-slate-200 hover:border-orange-300 hover:bg-orange-50/40"}`}
+                  >
+                    <svg className="w-7 h-7 text-slate-400" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16 16l-4-4-4 4m4-4v12m9-12a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <p className="text-[13px] font-semibold text-slate-600">Tap to upload receiver picture</p>
+                    <p className="text-[11px] text-slate-400">JPG · PNG · WEBP — max 8 MB</p>
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
+                    {receiverPreview && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={receiverPreview}
+                        alt="Receiver preview"
+                        className="w-16 h-16 rounded-lg object-cover flex-shrink-0 border border-slate-200"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-semibold text-slate-800 truncate">{receiverFile.name}</p>
+                      <p className="text-[11px] text-slate-500">{(receiverFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (receiverPreview) URL.revokeObjectURL(receiverPreview);
+                        setReceiverFile(null); setReceiverPreview(null);
+                      }}
+                      className="text-[12px] font-semibold text-red-500 hover:text-red-600 px-3 py-1.5"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+
+                <input
+                  ref={receiverInputRef}
+                  type="file"
+                  accept={RECEIVER_TYPES.join(",")}
+                  className="hidden"
+                  onChange={(e) => handleReceiverFile(e.target.files?.[0] ?? null)}
+                />
+
+                {errors.receiverImage && <p className="text-[12px] text-red-500">⚠ {errors.receiverImage}</p>}
+              </div>
+            </SectionCard>
+
+            {/* Step 4: Optional Details */}
+            <SectionCard step={4} title="Additional Details (Optional)">
               <div className="space-y-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[13px] font-semibold text-slate-700">Delivery / Box Location</label>
@@ -405,8 +508,8 @@ export default function ConsignmentPage() {
               </div>
             </SectionCard>
 
-            {/* Step 4: Terms + Submit */}
-            <SectionCard step={4} title="Confirm & Submit">
+            {/* Step 5: Terms + Submit */}
+            <SectionCard step={5} title="Confirm & Submit">
               <div className="space-y-4">
                 <label className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors
                   ${agreed ? "bg-orange-50 border-orange-200" : "bg-slate-50 border-slate-200 hover:border-slate-300"}`}>
@@ -457,7 +560,7 @@ export default function ConsignmentPage() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                       </svg>
-                      Submitting request...
+                      {uploadPct > 0 && uploadPct < 100 ? `Uploading picture ${uploadPct}%…` : "Submitting request…"}
                     </>
                   ) : (
                     <>
@@ -528,7 +631,7 @@ export default function ConsignmentPage() {
               />
               <InfoRow
                 icon={<svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.868v6.264a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>}
-                text="Our team records the proof video according to your instructions within 24–48 hours."
+                text="Our team records the proof video according to your instructions within 3–4 hours."
               />
               <InfoRow
                 icon={<svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>}
