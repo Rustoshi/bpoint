@@ -4,6 +4,7 @@ import Features from "@/components/Features";
 import WhatsAppChannel from "@/components/WhatsAppChannel";
 import Footer from "@/components/Footer";
 
+
 export default function Home() {
   return (
     <main>
