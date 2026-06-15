@@ -6,9 +6,9 @@ import { verifyAccessToken } from "@/lib/jwt";
 const statusLabel: Record<string, string> = {
   pending: "Pending",
   reviewing: "Reviewing",
-  recovered: "Recovered",
-  unrecoverable: "Unrecoverable",
-  cancelled: "Cancelled",
+  approved: "Approved",
+  paid: "Paid out",
+  rejected: "Rejected",
 };
 
 export async function GET(req: NextRequest) {
@@ -43,10 +43,10 @@ export async function GET(req: NextRequest) {
       brand: r.brand,
       cardValue: `$${r.cardValueUSD}`,
       issueType: formatIssueType(r.issueType),
-      fee: fmtNGN(r.feeChargedNGN),
+      rate: `₦${(r.rateSnapshot ?? 0).toLocaleString()}`,
+      payout: fmtNGN(r.payoutNGN ?? 0),
       date: fmt.format(new Date(r.createdAt)),
       status: statusLabel[r.status] ?? r.status,
-      recoveredCode: r.recoveredCode ?? null,
     }));
 
     return NextResponse.json({ success: true, requests: rows });

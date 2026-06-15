@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
 
     const orders = [
       ...normalize(toAny(trades),      "Trade",        (o) => `${o.brand} $${o.cardValueUSD}`,              (o) => o.payoutNGN),
-      ...normalize(toAny(recovery),    "Recovery",     (o) => `${o.brand} — ${o.issueType}`,                (o) => o.feeChargedNGN),
+      ...normalize(toAny(recovery),    "Recovery",     (o) => `${o.brand} $${o.cardValueUSD} — ${o.issueType}`, (o) => o.payoutNGN),
       ...normalize(toAny(consignment), "Consignment",  (o) => o.boxDescription?.slice(0, 60) ?? "Consignment order", (o) => o.feeChargedNGN),
       ...normalize(toAny(editing),     "Editing",      (o) => o.editDescription?.slice(0, 60) ?? "Editing order",    (o) => o.feeChargedNGN),
       ...normalize(toAny(lipsync),     "Lipsync",      (o) => o.lipsyncDescription?.slice(0, 60) ?? "Lipsync order", (o) => o.feeChargedNGN),

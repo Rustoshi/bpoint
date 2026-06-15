@@ -20,7 +20,7 @@ const fmtNGN = (n: number) =>
 type Rate = { brand: string; slug: string; ratePerDollar: number };
 
 async function loadPricing(): Promise<{
-  fees: { recovery: number; consignment: number; editing: number; lipsync: number };
+  fees: { consignment: number; editing: number; lipsync: number };
   dollarToNairaRate: number;
   rates: Rate[];
 }> {
@@ -31,7 +31,6 @@ async function loadPricing(): Promise<{
 
   return {
     fees: {
-      recovery:    Number(config.recoveryFeeNGN    ?? 0),
       consignment: Number(config.consignmentFeeNGN ?? 0),
       editing:     Number(config.editingFeeNGN     ?? 0),
       lipsync:     Number(config.lipsyncFeeNGN     ?? 0),
@@ -48,9 +47,9 @@ async function loadPricing(): Promise<{
 // ─── UI bits ───────────────────────────────────────────────────────────────────
 
 function ServiceCard({
-  title, description, price, accent, icon,
+  title, description, price, unit, accent, icon,
 }: {
-  title: string; description: string; price: number; accent: string; icon: React.ReactNode;
+  title: string; description: string; price: number | string; unit?: string; accent: string; icon: React.ReactNode;
 }) {
   return (
     <div className="group relative bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 hover:border-slate-300 hover:shadow-md transition-all">
@@ -63,8 +62,8 @@ function ServiceCard({
           <h3 className="text-[15px] font-bold text-slate-900">{title}</h3>
           <p className="text-[12.5px] text-slate-500 mt-1 leading-relaxed">{description}</p>
           <div className="mt-3 flex items-baseline gap-1">
-            <span className="text-[1.6rem] font-extrabold text-slate-900 tracking-tight">{fmtNGN(price)}</span>
-            <span className="text-[11px] text-slate-500">/ request</span>
+            <span className="text-[1.6rem] font-extrabold text-slate-900 tracking-tight">{typeof price === "number" ? fmtNGN(price) : price}</span>
+            <span className="text-[11px] text-slate-500">{unit ?? "/ request"}</span>
           </div>
         </div>
       </div>
@@ -80,8 +79,9 @@ export default async function PricingPage() {
   const services = [
     {
       title: "Code Recovery",
-      description: "Recover damaged, scratched-off, or missing gift card codes.",
-      price: fees.recovery,
+      description: "Recover damaged, scratched-off, or missing gift card codes — paid out like a trade.",
+      price: "No fee",
+      unit: "paid if recovered",
       accent: "from-violet-500 to-purple-500",
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">

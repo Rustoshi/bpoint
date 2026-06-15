@@ -93,10 +93,10 @@ const services = [
     },
     headline: "Missing Code Recovery",
     description:
-      "Lost or scratched-off your gift card code? Upload a clear photo of your card and our specialists will attempt to recover the code using advanced techniques. Pay only on success.",
-    steps: ["Upload card photo", "Specialist attempts recovery", "Receive code if recovered"],
+      "Lost or scratched-off your gift card code? Upload a clear photo of your card and our specialists will attempt to recover the code. Works just like a trade — if we recover it, the card value is paid to your bank account. No upfront fee.",
+    steps: ["Upload card photo & details", "Specialist attempts recovery", "Card value paid to your bank if recovered"],
     meta: { label: "Recovery success rate", value: "87%" },
-    metaNote: "Service fee deducted from your wallet balance",
+    metaNote: "Paid to your bank account on success — no upfront fee",
     graphic: (
       <div className="w-full">
         <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
@@ -111,9 +111,12 @@ const services = [
             <p className="text-blue-500">{">"} Enhancing resolution...</p>
             <p className="text-violet-500">{">"} Running OCR pass 1/3...</p>
             <p className="text-emerald-500">{">"} Code recovered! ✓</p>
-            <div className="mt-3 px-3 py-2 bg-emerald-50 border border-emerald-100 rounded-lg">
-              <p className="text-[11px] text-slate-500 mb-0.5">Recovered code:</p>
-              <p className="text-slate-900 font-bold tracking-widest text-[13px]">XXXX-XXXX-XXXX-8472</p>
+            <div className="mt-3 px-3 py-2.5 bg-emerald-50 border border-emerald-100 rounded-lg flex items-center justify-between">
+              <div>
+                <p className="text-[11px] text-slate-500 mb-0.5">Payout sent to bank</p>
+                <p className="text-slate-900 font-bold text-[15px]">₦82,000</p>
+              </div>
+              <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-emerald-600 text-white">Paid out</span>
             </div>
           </div>
         </div>

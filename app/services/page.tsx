@@ -20,7 +20,6 @@ async function loadFees() {
   await connectDB();
   const c = await getSiteConfig();
   return {
-    recovery:    Number(c.recoveryFeeNGN    ?? 0),
     consignment: Number(c.consignmentFeeNGN ?? 0),
     editing:     Number(c.editingFeeNGN     ?? 0),
     lipsync:     Number(c.lipsyncFeeNGN     ?? 0),
@@ -67,13 +66,13 @@ export default async function ServicesPage() {
         "Upload a photo of the card and any purchase receipt you have. Our team works with brand support channels to recover damaged or missing codes — a service that's almost impossible to get individually.",
       bullets: [
         "Submit images + receipt",
-        "Result delivered as a message + status update",
-        "Pay only the flat recovery fee — no hidden costs",
-        "Unrecoverable refunds are handled case-by-case",
+        "No upfront fee — you only get paid if we recover it",
+        "Recovered value paid straight to your bank account",
+        "Rate locked at submission, just like trading",
       ],
       cta:      { label: "Start a recovery", href: "/login" },
-      feeLabel: "Recovery fee",
-      feeValue: fmtNGN(fees.recovery),
+      feeLabel: "If recovered",
+      feeValue: "Full card value paid out",
       accent:   "from-violet-500 to-purple-500",
       iconPath: (<path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />),
     },

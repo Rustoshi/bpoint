@@ -24,7 +24,7 @@ const DISPLAY_NAME: Record<ServiceKey, string> = {
 
 const STATUS_OPTIONS: Record<ServiceKey, string[]> = {
   trade:       ["pending", "reviewing", "approved", "paid", "rejected"],
-  recovery:    ["pending", "reviewing", "recovered", "unrecoverable", "cancelled"],
+  recovery:    ["pending", "reviewing", "approved", "paid", "rejected"],
   consignment: ["pending", "processing", "delivered", "cancelled"],
   editing:     ["pending", "in-progress", "delivered", "cancelled"],
   lipsync:     ["pending", "in-progress", "delivered", "cancelled"],
@@ -345,7 +345,7 @@ function AdminOrderDetailPageInner() {
   const isDeliverable = DELIVERABLE.includes(type);
   const deliveryField: "deliveryUrl" | "proofVideoUrl" = type === "consignment" ? "proofVideoUrl" : "deliveryUrl";
 
-  const amount = type === "trade"
+  const amount = type === "trade" || type === "recovery"
     ? order.payoutNGN
     : type === "fund"
       ? order.amountNGN
@@ -430,10 +430,17 @@ function AdminOrderDetailPageInner() {
             <Field label="Brand" value={order.brand} />
             <Field label="Card value" value={`$${order.cardValueUSD}`} />
             <Field label="Issue type" value={order.issueType} />
+            <Field label="Rate snapshot" value={order.rateSnapshot} />
+            <Field label="Payout (₦)" value={order.payoutNGN?.toLocaleString()} />
             <Field label="Purchase store" value={order.purchaseStore} />
             <Field label="Purchase date" value={order.purchaseDate} />
-            <Field label="Recovered code" value={order.recoveredCode ? <span className="font-mono">{order.recoveredCode}</span> : "—"} />
             <div className="col-span-2 sm:col-span-3"><Field label="Description" value={order.issueDescription} /></div>
+            <div className="col-span-2 sm:col-span-3">
+              <Field
+                label="Bank snapshot"
+                value={order.bankSnapshot ? `${order.bankSnapshot.bankName} — ${order.bankSnapshot.accountNumber} (${order.bankSnapshot.nameOnBank})` : "—"}
+              />
+            </div>
             <div className="col-span-2 sm:col-span-3"><Field label="Images" value={<FileList urls={order.imageUrls} />} /></div>
             {order.receiptUrl && (
               <div className="col-span-2 sm:col-span-3">

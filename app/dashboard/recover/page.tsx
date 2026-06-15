@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { DataTable, type Column } from "@/components/dashboard/DataTable";
-import { useUser } from "@/lib/hooks/useUser";
 import { uploadManyToCloudinary, uploadToCloudinary } from "@/lib/cloudinary";
 
 // ─── Brand data ────────────────────────────────────────────────────────────────
@@ -29,6 +28,8 @@ const BRANDS = [
 ] as const;
 
 type BrandSlug = (typeof BRANDS)[number]["slug"];
+
+interface RateMap { [slug: string]: number }
 
 // ─── Issue types ───────────────────────────────────────────────────────────────
 
@@ -94,18 +95,18 @@ type RequestRow = {
   brand: string;
   cardValue: string;
   issueType: string;
-  fee: string;
+  rate: string;
+  payout: string;
   date: string;
   status: string;
-  recoveredCode: string | null;
 };
 
 const statusStyles: Record<string, string> = {
-  Pending:       "text-amber-700 bg-amber-50 border-amber-200",
-  Reviewing:     "text-violet-700 bg-violet-50 border-violet-200",
-  Recovered:     "text-emerald-700 bg-emerald-50 border-emerald-200",
-  Unrecoverable: "text-red-700 bg-red-50 border-red-200",
-  Cancelled:     "text-slate-600 bg-slate-50 border-slate-200",
+  Pending:     "text-amber-700 bg-amber-50 border-amber-200",
+  Reviewing:   "text-violet-700 bg-violet-50 border-violet-200",
+  Approved:    "text-emerald-700 bg-emerald-50 border-emerald-200",
+  "Paid out":  "text-emerald-700 bg-emerald-50 border-emerald-200",
+  Rejected:    "text-red-700 bg-red-50 border-red-200",
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -186,9 +187,9 @@ const requestColumns: Column<RequestRow>[] = [
     render: (r) => <span className="text-[13px] text-slate-700">{r.cardValue}</span>,
   },
   {
-    key: "fee", header: "Fee Paid",
-    searchValue: (r) => r.fee,
-    render: (r) => <span className="text-[13px] font-semibold text-slate-800">{r.fee}</span>,
+    key: "payout", header: "Payout",
+    searchValue: (r) => r.payout,
+    render: (r) => <span className="text-[13px] font-semibold text-emerald-700">{r.payout}</span>,
   },
   {
     key: "date", header: "Date",
@@ -198,16 +199,7 @@ const requestColumns: Column<RequestRow>[] = [
   {
     key: "status", header: "Status",
     searchValue: (r) => r.status,
-    render: (r) => (
-      <div className="space-y-1.5">
-        <StatusBadge status={r.status} />
-        {r.recoveredCode && (
-          <p className="text-[11px] font-mono font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 inline-block">
-            {r.recoveredCode}
-          </p>
-        )}
-      </div>
-    ),
+    render: (r) => <StatusBadge status={r.status} />,
   },
 ];
 
@@ -215,16 +207,23 @@ const requestColumns: Column<RequestRow>[] = [
 
 export default function RecoverPage() {
   const router = useRouter();
-  const { user } = useUser();
 
-  // ── Fee ──
-  const [feeNGN, setFeeNGN] = useState<number | null>(null);
+  // ── Rates ──
+  const [rates, setRates] = useState<RateMap>({});
+  const [ratesLoading, setRatesLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/recover/fee")
+    fetch("/api/trade/rates")
       .then((r) => r.json())
-      .then((d) => { if (d.success) setFeeNGN(d.feeNGN); })
-      .catch(() => setFeeNGN(500));
+      .then((d) => {
+        if (d.success) {
+          const map: RateMap = {};
+          for (const r of d.rates) map[r.slug] = r.ratePerDollar;
+          setRates(map);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setRatesLoading(false));
   }, []);
 
   // ── History table ──
@@ -260,13 +259,15 @@ export default function RecoverPage() {
   const [submitting, setSubmitting] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
   const [serverError, setServerError] = useState("");
-  const [success, setSuccess] = useState<{ requestId: string; feeCharged: number } | null>(null);
+  const [success, setSuccess] = useState<{ requestId: string; payoutNGN: number } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const receiptInputRef = useRef<HTMLInputElement>(null);
 
   const selectedBrand = BRANDS.find((b) => b.slug === selectedSlug) ?? null;
+  const currentRate = selectedSlug ? (rates[selectedSlug] ?? 1000) : 1000;
   const valueNum = parseFloat(cardValue) || 0;
+  const payoutNGN = valueNum * currentRate;
   const filteredBrands = BRANDS.filter((b) =>
     b.name.toLowerCase().includes(brandSearch.toLowerCase())
   );
@@ -321,6 +322,7 @@ export default function RecoverPage() {
     const errs: Record<string, string> = {};
     if (!selectedSlug) errs.brand = "Please select a gift card brand.";
     if (!cardValue || valueNum < 1) errs.cardValue = "Enter a valid card value (minimum $1).";
+    if (valueNum > 10000) errs.cardValue = "Card value cannot exceed $10,000.";
     if (!issueType) errs.issueType = "Please select the type of issue.";
     if (issueDescription.trim().length < 10) errs.issueDescription = "Please describe the issue in at least 10 characters.";
     if (images.length === 0) errs.images = "At least one card photo is required.";
@@ -334,12 +336,6 @@ export default function RecoverPage() {
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setErrors({});
     setServerError("");
-
-    // Check balance before even hitting the API
-    if (feeNGN !== null && user && user.walletBalance < feeNGN) {
-      setServerError(`Insufficient balance. You need ${fmtNGN(feeNGN)} but your current balance is ${fmtNGN(user.walletBalance)}. Please fund your account first.`);
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -384,7 +380,7 @@ export default function RecoverPage() {
         setServerError(data.message ?? "Submission failed. Please try again.");
         return;
       }
-      setSuccess({ requestId: String(data.requestId), feeCharged: data.feeChargedNGN });
+      setSuccess({ requestId: String(data.requestId), payoutNGN: data.payoutNGN });
       loadRequests();
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Upload or submission failed. Please try again.");
@@ -421,15 +417,15 @@ export default function RecoverPage() {
             </svg>
           </motion.div>
           <h2 className="text-[1.3rem] font-extrabold text-slate-900 mb-2">Request Submitted!</h2>
-          <p className="text-[14px] text-slate-500 mb-1">Our team will review your case and get back to you.</p>
+          <p className="text-[14px] text-slate-500 mb-1">Our team will review your card and attempt to recover the code.</p>
           <p className="text-[13px] text-slate-400 mb-6">
             Request ID: <span className="font-mono font-semibold text-slate-600">{success.requestId}</span>
           </p>
 
-          <div className="w-full p-4 rounded-xl bg-violet-50 border border-violet-100 mb-4 space-y-1">
-            <p className="text-[12px] font-semibold text-violet-600 uppercase tracking-wider">Service Fee Charged</p>
-            <p className="text-[1.8rem] font-extrabold text-violet-700">{fmtNGN(success.feeCharged)}</p>
-            <p className="text-[12px] text-violet-600">Deducted from your wallet balance</p>
+          <div className="w-full p-4 rounded-xl bg-emerald-50 border border-emerald-100 mb-4 space-y-1">
+            <p className="text-[12px] font-semibold text-emerald-600 uppercase tracking-wider">Payout If Recovered</p>
+            <p className="text-[1.8rem] font-extrabold text-emerald-700">{fmtNGN(success.payoutNGN)}</p>
+            <p className="text-[12px] text-emerald-600">Sent directly to your bank account on successful recovery</p>
           </div>
 
           <div className="flex items-center gap-2 p-3.5 rounded-xl bg-blue-50 border border-blue-100 w-full mb-6">
@@ -440,7 +436,7 @@ export default function RecoverPage() {
           </div>
 
           <p className="text-[13px] text-slate-500 mb-6">
-            If the code is recovered, it will be sent to you via <strong>Messages</strong> and visible in the request history below.
+            You can track the status of this request in the history below. No fee is charged — you are only paid if the code is recovered.
           </p>
 
           <div className="flex gap-3 w-full">
@@ -462,7 +458,7 @@ export default function RecoverPage() {
       <div>
         <h2 className="text-[1.3rem] font-extrabold text-slate-900 tracking-tight">Recover Missing Code</h2>
         <p className="text-[13px] text-slate-500 mt-0.5">
-          Submit your card details and our team will attempt to recover the missing code.
+          Submit a card with a missing or unreadable code — if we recover it, the value is paid to your bank account.
         </p>
       </div>
 
@@ -490,6 +486,7 @@ export default function RecoverPage() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 mb-5">
                 {filteredBrands.map((brand) => {
+                  const rate = ratesLoading ? null : (rates[brand.slug] ?? 1000);
                   const isSelected = selectedSlug === brand.slug;
                   return (
                     <button
@@ -502,9 +499,14 @@ export default function RecoverPage() {
                       <div className={`w-8 h-8 rounded-lg ${brand.color} flex items-center justify-center text-white font-extrabold text-[12px] flex-shrink-0`}>
                         {brand.name[0]}
                       </div>
-                      <p className={`text-[12px] font-bold truncate leading-tight ${isSelected ? "text-violet-700" : "text-slate-700"}`}>
-                        {brand.name}
-                      </p>
+                      <div className="min-w-0">
+                        <p className={`text-[12px] font-bold truncate leading-tight ${isSelected ? "text-violet-700" : "text-slate-700"}`}>
+                          {brand.name}
+                        </p>
+                        {rate !== null && (
+                          <p className="text-[10px] text-slate-400 mt-0.5">₦{rate.toLocaleString()}/$</p>
+                        )}
+                      </div>
                       {isSelected && (
                         <svg className="w-3.5 h-3.5 text-violet-500 ml-auto flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -522,7 +524,7 @@ export default function RecoverPage() {
               {/* Card value */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[13px] font-semibold text-slate-700">
-                  Estimated Card Value (USD) <span className="text-red-400">*</span>
+                  Card Value (USD) <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] font-bold text-slate-400">$</span>
@@ -539,6 +541,11 @@ export default function RecoverPage() {
                   />
                 </div>
                 {errors.cardValue && <p className="text-[12px] text-red-500">⚠ {errors.cardValue}</p>}
+                {valueNum > 0 && selectedSlug && (
+                  <p className="text-[12px] text-emerald-600 font-semibold">
+                    Payout if recovered: {fmtNGN(payoutNGN)} at ₦{currentRate.toLocaleString()}/$
+                  </p>
+                )}
               </div>
             </SectionCard>
 
@@ -710,7 +717,7 @@ export default function RecoverPage() {
                   <input type="checkbox" className="sr-only" checked={agreed} onChange={(e) => { setAgreed(e.target.checked); setErrors((err) => ({ ...err, agreed: "" })); }} />
                   <p className="text-[13px] text-slate-600 leading-relaxed">
                     I confirm that this gift card is genuine, was purchased legitimately, and I am the rightful owner.
-                    I understand the service fee of <strong>{feeNGN !== null ? fmtNGN(feeNGN) : "..."}</strong> will be deducted from my wallet balance upon submission and is non-refundable.
+                    I understand that if the code is recovered the card value is paid to my registered bank account at the rate locked at submission, and that cards which cannot be recovered or are found invalid will be rejected.
                   </p>
                 </label>
                 {errors.agreed && <p className="text-[12px] text-red-500">⚠ {errors.agreed}</p>}
@@ -728,8 +735,8 @@ export default function RecoverPage() {
                       </svg>
                       <div>
                         <p className="text-[13px] text-red-600 font-medium">{serverError}</p>
-                        {serverError.includes("balance") && (
-                          <a href="/dashboard/fund" className="text-[12px] text-red-500 underline mt-1 inline-block">Fund your account →</a>
+                        {serverError.toLowerCase().includes("bank details") && (
+                          <a href="/dashboard/settings" className="text-[12px] text-red-500 underline mt-1 inline-block">Add bank details →</a>
                         )}
                       </div>
                     </motion.div>
@@ -755,7 +762,6 @@ export default function RecoverPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                       </svg>
                       Submit Recovery Request
-                      {feeNGN !== null && <span className="ml-1 text-violet-200 text-[13px] font-normal">· {fmtNGN(feeNGN)} fee</span>}
                     </>
                   )}
                 </button>
@@ -787,36 +793,27 @@ export default function RecoverPage() {
                   <span className="text-[13px] font-semibold text-slate-800">{valueNum > 0 ? `$${valueNum}` : "—"}</span>
                 </div>
                 <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-slate-400 font-semibold">Rate</span>
+                  <span className="text-[13px] font-semibold text-slate-800">₦{currentRate.toLocaleString()} / $1</span>
+                </div>
+                <div className="flex items-center justify-between">
                   <span className="text-[12px] text-slate-400 font-semibold">Issue</span>
                   <span className="text-[13px] font-semibold text-slate-800">
                     {issueType ? ISSUE_TYPES.find((t) => t.value === issueType)?.label : "—"}
                   </span>
                 </div>
                 <div className="border-t border-dashed border-slate-200 pt-3">
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Service Fee</p>
-                  {feeNGN === null ? (
-                    <div className="w-24 h-7 bg-slate-100 rounded-lg animate-pulse" />
-                  ) : (
-                    <p className="text-[1.5rem] font-extrabold text-slate-900 tracking-tight leading-none">
-                      {fmtNGN(feeNGN)}
-                    </p>
-                  )}
-                  <p className="text-[11px] text-slate-400 mt-1">Deducted from wallet on submission</p>
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Payout if recovered</p>
+                  <motion.p
+                    key={payoutNGN}
+                    initial={{ opacity: 0.5, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-[1.6rem] font-extrabold text-slate-900 tracking-tight leading-none"
+                  >
+                    {valueNum > 0 ? fmtNGN(payoutNGN) : "₦0"}
+                  </motion.p>
+                  <p className="text-[11px] text-slate-400 mt-1">Sent directly to your bank account</p>
                 </div>
-                {user && feeNGN !== null && (
-                  <div className={`flex items-center gap-2 p-2.5 rounded-lg ${user.walletBalance >= feeNGN ? "bg-emerald-50 border border-emerald-100" : "bg-red-50 border border-red-100"}`}>
-                    <svg className={`w-3.5 h-3.5 flex-shrink-0 ${user.walletBalance >= feeNGN ? "text-emerald-500" : "text-red-500"}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      {user.walletBalance >= feeNGN
-                        ? <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        : <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      }
-                    </svg>
-                    <p className={`text-[11px] font-semibold ${user.walletBalance >= feeNGN ? "text-emerald-700" : "text-red-600"}`}>
-                      Balance: {fmtNGN(user.walletBalance)}
-                      {user.walletBalance < feeNGN && <> — <a href="/dashboard/fund" className="underline">Fund account</a></>}
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -828,8 +825,8 @@ export default function RecoverPage() {
                 text="Our team reviews your request within 24–72 hours."
               />
               <InfoRow
-                icon={<svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>}
-                text="If recovered, the working code is sent to you via Messages and shown in your request history."
+                icon={<svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>}
+                text="If recovered, the card value is paid directly to your registered bank account — no fee charged."
               />
               <InfoRow
                 icon={<svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>}
@@ -837,7 +834,7 @@ export default function RecoverPage() {
               />
               <InfoRow
                 icon={<svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-                text="The service fee is non-refundable even if the code cannot be recovered."
+                text="The rate is locked at submission. Cards that cannot be recovered or are invalid will be rejected."
               />
             </div>
           </div>

@@ -18,7 +18,6 @@ type ConfigUpdates = {
   bankAccountNumber?: string;
   bankName?: string;
   dollarToNairaRate?: number;
-  recoveryFeeNGN?: number;
   consignmentFeeNGN?: number;
   editingFeeNGN?: number;
   lipsyncFeeNGN?: number;
@@ -70,11 +69,6 @@ export async function PATCH(req: NextRequest) {
     if (r instanceof NextResponse) return r;
     updates.dollarToNairaRate = r;
   }
-  if (body.recoveryFeeNGN !== undefined) {
-    const r = validatePositive("Recovery fee", 0, body.recoveryFeeNGN);
-    if (r instanceof NextResponse) return r;
-    updates.recoveryFeeNGN = r;
-  }
   if (body.consignmentFeeNGN !== undefined) {
     const r = validatePositive("Consignment fee", 0, body.consignmentFeeNGN);
     if (r instanceof NextResponse) return r;
@@ -118,7 +112,6 @@ export async function PATCH(req: NextRequest) {
         bankAccountNumber: String(config.bankAccountNumber ?? ""),
         bankName:          String(config.bankName          ?? ""),
         dollarToNairaRate: Number(config.dollarToNairaRate ?? 0),
-        recoveryFeeNGN:    Number(config.recoveryFeeNGN    ?? 0),
         consignmentFeeNGN: Number(config.consignmentFeeNGN ?? 0),
         editingFeeNGN:     Number(config.editingFeeNGN     ?? 0),
         lipsyncFeeNGN:     Number(config.lipsyncFeeNGN     ?? 0),

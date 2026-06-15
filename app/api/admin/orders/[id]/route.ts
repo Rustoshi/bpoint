@@ -20,7 +20,7 @@ function requireAdmin(req: NextRequest): boolean {
 
 const VALID_STATUSES: Record<string, string[]> = {
   trade:       ["pending", "reviewing", "approved", "paid", "rejected"],
-  recovery:    ["pending", "reviewing", "recovered", "unrecoverable", "cancelled"],
+  recovery:    ["pending", "reviewing", "approved", "paid", "rejected"],
   consignment: ["pending", "processing", "delivered", "cancelled"],
   editing:     ["pending", "in-progress", "delivered", "cancelled"],
   lipsync:     ["pending", "in-progress", "delivered", "cancelled"],
@@ -39,7 +39,7 @@ const MODELS: Record<string, mongoose.Model<any>> = {
 
 const TERMINAL_DATE_FIELD: Record<string, string> = {
   trade:       "reviewedAt",
-  recovery:    "resolvedAt",
+  recovery:    "reviewedAt",
   consignment: "resolvedAt",
   editing:     "resolvedAt",
   lipsync:     "resolvedAt",
@@ -124,7 +124,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if (status) {
       order.status = status;
       const dateField = TERMINAL_DATE_FIELD[type];
-      if (type === "trade" && status === "paid") {
+      if ((type === "trade" || type === "recovery") && status === "paid") {
         order.paidAt = new Date();
       } else if (dateField) {
         order[dateField] = new Date();

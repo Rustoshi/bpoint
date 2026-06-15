@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
     };
     const doneStatuses: Record<string, string[]> = {
       trade:       ["approved", "paid", "rejected"],
-      recovery:    ["recovered", "unrecoverable", "cancelled"],
+      recovery:    ["approved", "paid", "rejected"],
       consignment: ["delivered", "cancelled"],
       editing:     ["delivered", "cancelled"],
       lipsync:     ["delivered", "cancelled"],
@@ -106,7 +106,7 @@ export async function GET(req: NextRequest) {
 
     const all = [
       ...normalise(trades      as AnyDoc[], "Trade",        (o) => `${o.brand} $${o.cardValueUSD}`, (o) => o.payoutNGN,   userMap),
-      ...normalise(recovery    as AnyDoc[], "Recovery",     (o) => `${o.brand} — ${o.issueType}`,   (o) => o.feeChargedNGN, userMap),
+      ...normalise(recovery    as AnyDoc[], "Recovery",     (o) => `${o.brand} $${o.cardValueUSD} — ${o.issueType}`, (o) => o.payoutNGN, userMap),
       ...normalise(consignment as AnyDoc[], "Consignment",  (o) => o.boxDescription?.slice(0, 80),  (o) => o.feeChargedNGN, userMap),
       ...normalise(editing     as AnyDoc[], "Editing",      (o) => o.editDescription?.slice(0, 80), (o) => o.feeChargedNGN, userMap),
       ...normalise(lipsync     as AnyDoc[], "Lipsync",      (o) => o.lipsyncDescription?.slice(0, 80), (o) => o.feeChargedNGN, userMap),

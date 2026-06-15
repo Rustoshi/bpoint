@@ -6,7 +6,6 @@ import mongoose, { Schema, Document, Model } from "mongoose";
  */
 export interface ISiteConfig extends Document {
   key: string;
-  recoveryFeeNGN: number;
   consignmentFeeNGN: number;
   editingFeeNGN: number;
   lipsyncFeeNGN: number;
@@ -22,7 +21,6 @@ export interface ISiteConfig extends Document {
 const SiteConfigSchema = new Schema<ISiteConfig>(
   {
     key: { type: String, default: "default", unique: true },
-    recoveryFeeNGN: { type: Number, default: 500, min: 0 },
     consignmentFeeNGN: { type: Number, default: 1000, min: 0 },
     editingFeeNGN: { type: Number, default: 800, min: 0 },
     lipsyncFeeNGN: { type: Number, default: 1500, min: 0 },
@@ -43,7 +41,6 @@ const SiteConfig: Model<ISiteConfig> =
 export default SiteConfig;
 
 const DEFAULTS = {
-  recoveryFeeNGN:    500,
   consignmentFeeNGN: 1000,
   editingFeeNGN:     800,
   lipsyncFeeNGN:     1500,

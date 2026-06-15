@@ -28,7 +28,6 @@ export async function GET(req: NextRequest) {
         bankAccountNumber: String(config.bankAccountNumber ?? ""),
         bankName:          String(config.bankName          ?? ""),
         dollarToNairaRate: Number(config.dollarToNairaRate ?? 0),
-        recoveryFeeNGN:    Number(config.recoveryFeeNGN    ?? 0),
         consignmentFeeNGN: Number(config.consignmentFeeNGN ?? 0),
         editingFeeNGN:     Number(config.editingFeeNGN     ?? 0),
         lipsyncFeeNGN:     Number(config.lipsyncFeeNGN     ?? 0),

@@ -11,7 +11,6 @@ type Config = {
   bankAccountNumber: string;
   bankName: string;
   dollarToNairaRate: number;
-  recoveryFeeNGN: number;
   consignmentFeeNGN: number;
   editingFeeNGN: number;
   lipsyncFeeNGN: number;
@@ -126,7 +125,6 @@ export default function AdminSettingsPage() {
   const [rateOk,     setRateOk]     = useState("");
 
   // Service fees
-  const [recoveryFee,    setRecoveryFee]    = useState("");
   const [consignmentFee, setConsignmentFee] = useState("");
   const [editingFee,     setEditingFee]     = useState("");
   const [lipsyncFee,     setLipsyncFee]     = useState("");
@@ -167,7 +165,6 @@ export default function AdminSettingsPage() {
       setBankAcct(c.bankAccountNumber ?? "");
       setBankHolder(c.bankAccountName ?? "");
       setDollarRate(String(c.dollarToNairaRate ?? ""));
-      setRecoveryFee(String(c.recoveryFeeNGN ?? ""));
       setConsignmentFee(String(c.consignmentFeeNGN ?? ""));
       setEditingFee(String(c.editingFeeNGN ?? ""));
       setLipsyncFee(String(c.lipsyncFeeNGN ?? ""));
@@ -199,7 +196,6 @@ export default function AdminSettingsPage() {
     setBankAcct(c.bankAccountNumber ?? "");
     setBankHolder(c.bankAccountName ?? "");
     setDollarRate(String(c.dollarToNairaRate ?? ""));
-    setRecoveryFee(String(c.recoveryFeeNGN ?? ""));
     setConsignmentFee(String(c.consignmentFeeNGN ?? ""));
     setEditingFee(String(c.editingFeeNGN ?? ""));
     setLipsyncFee(String(c.lipsyncFeeNGN ?? ""));
@@ -279,7 +275,6 @@ export default function AdminSettingsPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...authHeader() },
         body: JSON.stringify({
-          recoveryFeeNGN:    Number(recoveryFee),
           consignmentFeeNGN: Number(consignmentFee),
           editingFeeNGN:     Number(editingFee),
           lipsyncFeeNGN:     Number(lipsyncFee),
@@ -448,7 +443,6 @@ export default function AdminSettingsPage() {
         description="Fees charged when users place each service request. All values in ₦."
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input label="Code recovery"    type="number" prefix="₦" value={recoveryFee}    onChange={setRecoveryFee} />
           <Input label="Consignment proof" type="number" prefix="₦" value={consignmentFee} onChange={setConsignmentFee} />
           <Input label="Photo editing"     type="number" prefix="₦" value={editingFee}     onChange={setEditingFee} />
           <Input label="Lipsync video"     type="number" prefix="₦" value={lipsyncFee}     onChange={setLipsyncFee} />
@@ -456,7 +450,7 @@ export default function AdminSettingsPage() {
         <div className="mt-3"><Status error={feesErr} success={feesOk} /></div>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
           <p className="text-[11px] text-slate-500">
-            Preview: Recovery {fmtNGN(Number(recoveryFee) || 0)} · Consignment {fmtNGN(Number(consignmentFee) || 0)} · Editing {fmtNGN(Number(editingFee) || 0)} · Lipsync {fmtNGN(Number(lipsyncFee) || 0)}
+            Preview: Consignment {fmtNGN(Number(consignmentFee) || 0)} · Editing {fmtNGN(Number(editingFee) || 0)} · Lipsync {fmtNGN(Number(lipsyncFee) || 0)}
           </p>
           <button
             onClick={saveFees}

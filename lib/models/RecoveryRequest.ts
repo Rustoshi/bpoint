@@ -7,12 +7,14 @@ export type IssueType =
   | "not-loading"
   | "other";
 
+// Mirrors the gift-card trade lifecycle: when the missing code is recovered the
+// card value is paid out to the user's bank account; otherwise it is rejected.
 export type RecoveryStatus =
   | "pending"
   | "reviewing"
-  | "recovered"
-  | "unrecoverable"
-  | "cancelled";
+  | "approved"
+  | "paid"
+  | "rejected";
 
 export interface IRecoveryRequest extends Document {
   userId: mongoose.Types.ObjectId;
@@ -25,11 +27,17 @@ export interface IRecoveryRequest extends Document {
   receiptUrl?: string;
   purchaseStore?: string;
   purchaseDate?: string;
-  feeChargedNGN: number;
-  recoveredCode?: string;
+  rateSnapshot: number;
+  payoutNGN: number;
+  bankSnapshot: {
+    accountNumber: string;
+    bankName: string;
+    nameOnBank: string;
+  };
   status: RecoveryStatus;
   adminNote?: string;
-  resolvedAt?: Date;
+  reviewedAt?: Date;
+  paidAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -50,15 +58,21 @@ const RecoveryRequestSchema = new Schema<IRecoveryRequest>(
     receiptUrl: { type: String },
     purchaseStore: { type: String, trim: true },
     purchaseDate: { type: String, trim: true },
-    feeChargedNGN: { type: Number, required: true, min: 0 },
-    recoveredCode: { type: String },
+    rateSnapshot: { type: Number, required: true },
+    payoutNGN: { type: Number, required: true },
+    bankSnapshot: {
+      accountNumber: { type: String, required: true },
+      bankName: { type: String, required: true },
+      nameOnBank: { type: String, required: true },
+    },
     status: {
       type: String,
-      enum: ["pending", "reviewing", "recovered", "unrecoverable", "cancelled"],
+      enum: ["pending", "reviewing", "approved", "paid", "rejected"],
       default: "pending",
     },
     adminNote: { type: String },
-    resolvedAt: { type: Date },
+    reviewedAt: { type: Date },
+    paidAt: { type: Date },
   },
   { timestamps: true }
 );
