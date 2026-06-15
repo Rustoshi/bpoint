@@ -15,6 +15,14 @@ const FU = ({ delay, children, className }: { delay: number; children: React.Rea
   </motion.div>
 );
 
+const WHATSAPP_CHANNEL_URL = "https://whatsapp.com/channel/0029VbAckKz7j6fxvuPBAM0J";
+
+const WhatsAppIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 018.413 3.488 11.824 11.824 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 001.51 5.26l-.999 3.648 3.989-1.077zm5.382-6.487zm-3.998-5.464c-.182-.405-.374-.413-.547-.42l-.465-.006a.893.893 0 00-.648.305c-.223.243-.85.831-.85 2.027 0 1.196.872 2.352.993 2.514.121.162 1.694 2.715 4.181 3.704 2.067.815 2.488.653 2.936.612.448-.04 1.446-.59 1.65-1.16.205-.572.205-1.062.143-1.165-.061-.103-.223-.165-.466-.286-.243-.122-1.446-.714-1.67-.795-.224-.082-.387-.122-.55.122-.162.243-.631.795-.774.957-.142.163-.285.183-.528.061-.243-.122-1.026-.378-1.954-1.206-.722-.644-1.21-1.439-1.352-1.682-.142-.243-.015-.374.106-.495.109-.108.243-.284.365-.426.121-.142.162-.243.243-.405.081-.163.04-.305-.021-.426-.061-.122-.534-1.318-.752-1.806z" />
+  </svg>
+);
+
 const stats = [
   { value: "10K+", label: "Active Users" },
   { value: "$5M+", label: "Total Traded" },
@@ -94,6 +102,17 @@ export default function Hero() {
                 >
                   View Rates
                 </Link>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+                <a
+                  href={WHATSAPP_CHANNEL_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white text-[15px] font-semibold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm shadow-emerald-200"
+                >
+                  <WhatsAppIcon className="w-4 h-4" />
+                  Join WhatsApp
+                </a>
               </motion.div>
             </FU>
 
