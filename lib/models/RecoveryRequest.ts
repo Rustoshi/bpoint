@@ -20,7 +20,9 @@ export interface IRecoveryRequest extends Document {
   userId: mongoose.Types.ObjectId;
   brand: string;
   brandSlug: string;
-  cardValueUSD: number;
+  cardValue: number;
+  currencyCode: string;
+  currencySymbol: string;
   issueType: IssueType;
   issueDescription: string;
   imageUrls: string[];
@@ -47,7 +49,9 @@ const RecoveryRequestSchema = new Schema<IRecoveryRequest>(
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     brand: { type: String, required: true, trim: true },
     brandSlug: { type: String, required: true, lowercase: true, trim: true },
-    cardValueUSD: { type: Number, required: true, min: 1 },
+    cardValue:       { type: Number, required: true, min: 1 },
+    currencyCode:   { type: String, default: "USD", trim: true, uppercase: true },
+    currencySymbol: { type: String, default: "$",   trim: true },
     issueType: {
       type: String,
       enum: ["scratched-off", "missing-code", "damaged-card", "not-loading", "other"],

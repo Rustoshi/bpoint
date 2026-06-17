@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/lib/models/User";
 import RecoveryRequest from "@/lib/models/RecoveryRequest";
-import GiftCardRate from "@/lib/models/GiftCardRate";
+import GiftCardRate, { getCurrencyRate } from "@/lib/models/GiftCardRate";
 import { verifyAccessToken } from "@/lib/jwt";
 
 export async function POST(req: NextRequest) {
@@ -27,7 +27,9 @@ export async function POST(req: NextRequest) {
     const {
       brandSlug,
       brand,
+      cardValue: cardValueRaw,
       cardValueUSD,
+      currencyCode: rawCurrency,
       issueType,
       issueDescription,
       imageUrls,
@@ -35,14 +37,16 @@ export async function POST(req: NextRequest) {
       purchaseStore,
       purchaseDate,
     } = body;
+    const cardValueInput = cardValueRaw ?? cardValueUSD;
+    const currencyCode = (typeof rawCurrency === "string" && rawCurrency.trim()) ? rawCurrency.trim().toUpperCase() : "USD";
 
     // ── Validate ────────────────────────────────────────────────────────────────
     if (!brandSlug || !brand) {
       return NextResponse.json({ success: false, message: "Please select a gift card brand." }, { status: 400 });
     }
-    const value = Number(cardValueUSD);
+    const value = Number(cardValueInput);
     if (!value || value < 1 || value > 10000) {
-      return NextResponse.json({ success: false, message: "Card value must be between $1 and $10,000." }, { status: 400 });
+      return NextResponse.json({ success: false, message: "Card value must be between 1 and 10,000 in the selected currency." }, { status: 400 });
     }
     const validIssueTypes = ["scratched-off", "missing-code", "damaged-card", "not-loading", "other"];
     if (!issueType || !validIssueTypes.includes(issueType)) {
@@ -71,7 +75,9 @@ export async function POST(req: NextRequest) {
 
     // Rate is locked in at submission time — value paid out on successful recovery.
     const rateDoc = await GiftCardRate.findOne({ slug: String(brandSlug).toLowerCase().trim(), isActive: true });
-    const rateSnapshot = rateDoc?.ratePerDollar ?? 1000;
+    const currencyRate = rateDoc ? getCurrencyRate(rateDoc, currencyCode) : null;
+    const rateSnapshot = currencyRate?.ratePerUnit ?? 1000;
+    const currencySymbol = currencyRate?.symbol ?? "$";
     const payoutNGN = value * rateSnapshot;
 
     // ── Create request ────────────────────────────────────────────────────────
@@ -79,7 +85,9 @@ export async function POST(req: NextRequest) {
       userId,
       brand: String(brand).trim(),
       brandSlug: String(brandSlug).toLowerCase().trim(),
-      cardValueUSD: value,
+      cardValue: value,
+      currencyCode,
+      currencySymbol,
       issueType,
       issueDescription: String(issueDescription).trim(),
       imageUrls: imageUrls.slice(0, 6),
@@ -102,6 +110,8 @@ export async function POST(req: NextRequest) {
       requestId: request._id,
       payoutNGN,
       rateSnapshot,
+      currencyCode,
+      currencySymbol,
     });
   } catch (error) {
     console.error("[POST /api/recover/submit]", error);

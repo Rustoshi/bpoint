@@ -28,7 +28,8 @@ const BRANDS = [
 
 type BrandSlug = (typeof BRANDS)[number]["slug"];
 
-interface RateMap { [slug: string]: number }
+interface CurrencyRate { code: string; symbol: string; ratePerUnit: number; isActive: boolean; }
+interface RateMap { [slug: string]: CurrencyRate[] }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -86,7 +87,7 @@ export default function TradePage() {
       .then((d) => {
         if (d.success) {
           const map: RateMap = {};
-          for (const r of d.rates) map[r.slug] = r.ratePerDollar;
+          for (const r of d.rates) map[r.slug] = r.currencies;
           setRates(map);
         }
       })
@@ -96,6 +97,7 @@ export default function TradePage() {
 
   // ── Form state ──
   const [selectedSlug, setSelectedSlug] = useState<BrandSlug | null>(null);
+  const [selectedCurrencyCode, setSelectedCurrencyCode] = useState<string>("USD");
   const [cardValue, setCardValue] = useState("");
   const [submissionType, setSubmissionType] = useState<"ecode" | "physical">("ecode");
   const [eCode, setECode] = useState("");
@@ -113,16 +115,32 @@ export default function TradePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedBrand = BRANDS.find((b) => b.slug === selectedSlug) ?? null;
-  const currentRate = selectedSlug ? (rates[selectedSlug] ?? 1000) : 1000;
+  const activeCurrencies: CurrencyRate[] = selectedSlug
+    ? (rates[selectedSlug] ?? []).filter((c) => c.isActive)
+    : [];
+  const defaultCurrency: CurrencyRate = { code: "USD", symbol: "$", ratePerUnit: 1000, isActive: true };
+  const selectedCurrency: CurrencyRate =
+    activeCurrencies.find((c) => c.code === selectedCurrencyCode) ??
+    activeCurrencies[0] ??
+    defaultCurrency;
   const valueNum = parseFloat(cardValue) || 0;
-  const payoutNGN = valueNum * currentRate;
+  const payoutNGN = valueNum * selectedCurrency.ratePerUnit;
 
-  // When brand changes, reset submission type if the new brand doesn't support current type
+  // When brand changes, reset submission type and re-validate currency selection
   useEffect(() => {
     if (selectedBrand && !selectedBrand.accepts.includes(submissionType as never)) {
       setSubmissionType(selectedBrand.accepts[0] as "ecode" | "physical");
     }
   }, [selectedSlug, selectedBrand, submissionType]);
+
+  // When brand changes, keep selected currency if available, else reset to first active
+  useEffect(() => {
+    if (!selectedSlug) return;
+    const available = (rates[selectedSlug] ?? []).filter((c) => c.isActive);
+    if (available.length > 0 && !available.find((c) => c.code === selectedCurrencyCode)) {
+      setSelectedCurrencyCode(available[0].code);
+    }
+  }, [selectedSlug, rates, selectedCurrencyCode]);
 
   // Revoke old preview URLs on unmount / change
   useEffect(() => {
@@ -157,8 +175,8 @@ export default function TradePage() {
   function validate() {
     const errs: Record<string, string> = {};
     if (!selectedSlug) errs.brand = "Please select a gift card brand.";
-    if (!cardValue || valueNum < 1) errs.cardValue = "Enter a valid card value (minimum $1).";
-    if (valueNum > 10000) errs.cardValue = "Card value cannot exceed $10,000.";
+    if (!cardValue || valueNum < 1) errs.cardValue = `Enter a valid card value (minimum ${selectedCurrency.symbol}1).`;
+    if (valueNum > 10000) errs.cardValue = `Card value cannot exceed ${selectedCurrency.symbol}10,000.`;
     if (submissionType === "ecode" && !eCode.trim()) errs.eCode = "E-code is required.";
     if (submissionType === "physical" && images.length === 0) errs.images = "Upload at least one card image.";
     if (!agreed) errs.agreed = "Please accept the terms to proceed.";
@@ -194,7 +212,8 @@ export default function TradePage() {
         },
         body: JSON.stringify({
           brandSlug: selectedSlug,
-          cardValueUSD: valueNum,
+          cardValue: valueNum,
+          currencyCode: selectedCurrency.code,
           submissionType,
           eCode: submissionType === "ecode" ? eCode.trim() : undefined,
           ePin: ePin.trim() || undefined,
@@ -303,7 +322,8 @@ export default function TradePage() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2">
                 {filteredBrands.map((brand) => {
-                  const rate = ratesLoading ? null : (rates[brand.slug] ?? 1000);
+                  const brandCurrencies = ratesLoading ? [] : (rates[brand.slug] ?? []).filter(c => c.isActive);
+                  const displayRate = brandCurrencies[0];
                   const isSelected = selectedSlug === brand.slug;
                   return (
                     <button
@@ -323,8 +343,8 @@ export default function TradePage() {
                         <p className={`text-[12px] font-bold truncate leading-tight ${isSelected ? "text-blue-700" : "text-slate-700"}`}>
                           {brand.name}
                         </p>
-                        {rate !== null && (
-                          <p className="text-[10px] text-slate-400 mt-0.5">₦{rate.toLocaleString()}/$</p>
+                        {displayRate && (
+                          <p className="text-[10px] text-slate-400 mt-0.5">₦{displayRate.ratePerUnit.toLocaleString()}/{displayRate.symbol}</p>
                         )}
                       </div>
                       {isSelected && (
@@ -342,33 +362,59 @@ export default function TradePage() {
               {errors.brand && <p className="mt-2 text-[12px] text-red-500 flex items-center gap-1">⚠ {errors.brand}</p>}
             </SectionCard>
 
-            {/* Step 2: Card value */}
-            <SectionCard step={2} title="Card Value">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[13px] font-semibold text-slate-700">
-                  Card Value (USD) <span className="text-red-400">*</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] font-bold text-slate-400">$</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={10000}
-                    step="any"
-                    placeholder="0.00"
-                    value={cardValue}
-                    onChange={(e) => { setCardValue(e.target.value); setErrors((err) => ({ ...err, cardValue: "" })); }}
-                    className={`w-full h-11 pl-8 pr-4 text-[15px] font-semibold text-slate-900 bg-white border rounded-lg outline-none transition-all
-                      focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
-                      ${errors.cardValue ? "border-red-400 bg-red-50/30" : "border-slate-200 hover:border-slate-300"}`}
-                  />
-                </div>
-                {errors.cardValue && <p className="text-[12px] text-red-500 flex items-center gap-1">⚠ {errors.cardValue}</p>}
-                {valueNum > 0 && selectedSlug && (
-                  <p className="text-[12px] text-emerald-600 font-semibold">
-                    = {fmtNGN(payoutNGN)} at ₦{currentRate.toLocaleString()}/$
-                  </p>
+            {/* Step 2: Currency + Card Value */}
+            <SectionCard step={2} title="Currency &amp; Card Value">
+              <div className="flex flex-col gap-4">
+                {/* Currency selector */}
+                {activeCurrencies.length > 1 && (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[13px] font-semibold text-slate-700">Card Currency</label>
+                    <div className="flex flex-wrap gap-2">
+                      {activeCurrencies.map((c) => (
+                        <button
+                          key={c.code}
+                          type="button"
+                          onClick={() => { setSelectedCurrencyCode(c.code); setErrors((e) => ({ ...e, cardValue: "" })); }}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[13px] font-semibold transition-all
+                            ${selectedCurrency.code === c.code
+                              ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                              : "bg-white text-slate-600 border-slate-200 hover:border-blue-400"}`}
+                        >
+                          <span>{c.symbol}</span>
+                          <span>{c.code}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
+
+                {/* Value input */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[13px] font-semibold text-slate-700">
+                    Card Value ({selectedCurrency.code}) <span className="text-red-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] font-bold text-slate-400">{selectedCurrency.symbol}</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={10000}
+                      step="any"
+                      placeholder="0.00"
+                      value={cardValue}
+                      onChange={(e) => { setCardValue(e.target.value); setErrors((err) => ({ ...err, cardValue: "" })); }}
+                      className={`w-full h-11 pl-8 pr-4 text-[15px] font-semibold text-slate-900 bg-white border rounded-lg outline-none transition-all
+                        focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
+                        ${errors.cardValue ? "border-red-400 bg-red-50/30" : "border-slate-200 hover:border-slate-300"}`}
+                    />
+                  </div>
+                  {errors.cardValue && <p className="text-[12px] text-red-500 flex items-center gap-1">⚠ {errors.cardValue}</p>}
+                  {valueNum > 0 && selectedSlug && (
+                    <p className="text-[12px] text-emerald-600 font-semibold">
+                      = {fmtNGN(payoutNGN)} at ₦{selectedCurrency.ratePerUnit.toLocaleString()}/{selectedCurrency.symbol}
+                    </p>
+                  )}
+                </div>
               </div>
             </SectionCard>
 
@@ -585,12 +631,16 @@ export default function TradePage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[12px] text-slate-400 font-semibold">Card Value</span>
-                  <span className="text-[13px] font-semibold text-slate-800">{valueNum > 0 ? `$${valueNum.toLocaleString()}` : "—"}</span>
+                  <span className="text-[13px] font-semibold text-slate-800">{valueNum > 0 ? `${selectedCurrency.symbol}${valueNum.toLocaleString()}` : "—"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-slate-400 font-semibold">Currency</span>
+                  <span className="text-[13px] font-semibold text-slate-800">{selectedCurrency.code}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[12px] text-slate-400 font-semibold">Rate</span>
                   <span className="text-[13px] font-semibold text-slate-800">
-                    ₦{currentRate.toLocaleString()} / $1
+                    ₦{selectedCurrency.ratePerUnit.toLocaleString()} / {selectedCurrency.symbol}1
                   </span>
                 </div>
                 <div className="flex items-center justify-between">

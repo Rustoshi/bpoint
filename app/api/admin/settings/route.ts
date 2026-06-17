@@ -35,11 +35,13 @@ export async function GET(req: NextRequest) {
         whatsappNumber:    String(config.whatsappNumber    ?? ""),
       },
       rates: rates.map((r) => ({
-        id:             String(r._id),
-        brand:          r.brand,
-        slug:           r.slug,
-        ratePerDollar:  r.ratePerDollar,
-        isActive:       r.isActive,
+        id:         String(r._id),
+        brand:      r.brand,
+        slug:       r.slug,
+        isActive:   r.isActive,
+        currencies: (r.currencies && r.currencies.length > 0)
+          ? r.currencies
+          : [{ code: "USD", symbol: "$", ratePerUnit: r.ratePerDollar ?? 1000, isActive: true }],
       })),
     });
   } catch (err) {

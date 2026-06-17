@@ -7,11 +7,13 @@ export interface ITradeOrder extends Document {
   userId: mongoose.Types.ObjectId;
   brand: string;
   brandSlug: string;
-  cardValueUSD: number;
+  cardValue: number;
   submissionType: SubmissionType;
   eCode?: string;
   ePin?: string;
   imageUrls: string[];
+  currencyCode: string;
+  currencySymbol: string;
   rateSnapshot: number;
   payoutNGN: number;
   bankSnapshot: {
@@ -37,7 +39,7 @@ const TradeOrderSchema = new Schema<ITradeOrder>(
     },
     brand: { type: String, required: true, trim: true },
     brandSlug: { type: String, required: true, lowercase: true, trim: true },
-    cardValueUSD: { type: Number, required: true, min: [1, "Card value must be at least $1"] },
+    cardValue: { type: Number, required: true, min: [1, "Card value must be at least 1"] },
     submissionType: {
       type: String,
       enum: ["ecode", "physical"],
@@ -46,6 +48,8 @@ const TradeOrderSchema = new Schema<ITradeOrder>(
     eCode: { type: String, trim: true },
     ePin: { type: String, trim: true },
     imageUrls: { type: [String], default: [] },
+    currencyCode:   { type: String, default: "USD", trim: true, uppercase: true },
+    currencySymbol: { type: String, default: "$",   trim: true },
     rateSnapshot: { type: Number, required: true },
     payoutNGN: { type: Number, required: true },
     bankSnapshot: {

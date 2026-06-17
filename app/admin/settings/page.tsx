@@ -18,12 +18,19 @@ type Config = {
   whatsappNumber: string;
 };
 
+type CurrencyDraft = {
+  code: string;
+  symbol: string;
+  ratePerUnit: string;
+  isActive: boolean;
+};
+
 type Rate = {
   id: string;
   brand: string;
   slug: string;
-  ratePerDollar: number;
   isActive: boolean;
+  currencies: CurrencyDraft[];
 };
 
 type RateDraft = {
@@ -31,10 +38,19 @@ type RateDraft = {
   id?: string;
   brand: string;
   slug?: string;
-  ratePerDollar: string;
   isActive: boolean;
+  currencies: CurrencyDraft[];
   removed?: boolean;
+  expanded?: boolean;
 };
+
+const KNOWN_CURRENCIES: CurrencyDraft[] = [
+  { code: "USD", symbol: "$",   ratePerUnit: "1000", isActive: true },
+  { code: "GBP", symbol: "£",   ratePerUnit: "1000", isActive: true },
+  { code: "EUR", symbol: "€",   ratePerUnit: "1000", isActive: true },
+  { code: "CAD", symbol: "CA$", ratePerUnit: "1000", isActive: true },
+  { code: "AUD", symbol: "AU$", ratePerUnit: "1000", isActive: true },
+];
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -137,6 +153,7 @@ export default function AdminSettingsPage() {
   const [ratesSaving, setRatesSaving] = useState(false);
   const [ratesErr,    setRatesErr]    = useState("");
   const [ratesOk,     setRatesOk]     = useState("");
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
 
   // Public contact info
   const [supportEmail,   setSupportEmail]   = useState("");
@@ -171,12 +188,12 @@ export default function AdminSettingsPage() {
       setSupportEmail(c.supportEmail ?? "");
       setWhatsappNumber(c.whatsappNumber ?? "");
       setRateDrafts((data.rates as Rate[]).map((r) => ({
-        key:           r.id,
-        id:            r.id,
-        brand:         r.brand,
-        slug:          r.slug,
-        ratePerDollar: String(r.ratePerDollar),
-        isActive:      r.isActive,
+        key:        r.id,
+        id:         r.id,
+        brand:      r.brand,
+        slug:       r.slug,
+        isActive:   r.isActive,
+        currencies: r.currencies.map((c) => ({ ...c, ratePerUnit: String(c.ratePerUnit) })),
       })));
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Failed to load settings.");
@@ -292,10 +309,12 @@ export default function AdminSettingsPage() {
 
   // ── Giftcard rates ────────────────────────────────────────────────────────
   function addRateRow() {
+    const key = `new-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     setRateDrafts((d) => [
       ...d,
-      { key: `new-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, brand: "", ratePerDollar: "1000", isActive: true },
+      { key, brand: "", isActive: true, currencies: [{ code: "USD", symbol: "$", ratePerUnit: "1000", isActive: true }] },
     ]);
+    setExpandedKeys((s) => new Set(s).add(key));
   }
 
   function updateRate(key: string, patch: Partial<RateDraft>) {
@@ -310,18 +329,60 @@ export default function AdminSettingsPage() {
     setRateDrafts((d) => d.map((r) => r.key === key ? { ...r, removed: false } : r));
   }
 
+  function toggleExpanded(key: string) {
+    setExpandedKeys((s) => {
+      const next = new Set(s);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  }
+
+  function addCurrency(rateKey: string) {
+    setRateDrafts((d) => d.map((r) => {
+      if (r.key !== rateKey) return r;
+      const existing = new Set(r.currencies.map((c) => c.code));
+      const next = KNOWN_CURRENCIES.find((kc) => !existing.has(kc.code));
+      const newEntry: CurrencyDraft = next
+        ? { ...next }
+        : { code: "", symbol: "", ratePerUnit: "1000", isActive: true };
+      return { ...r, currencies: [...r.currencies, newEntry] };
+    }));
+  }
+
+  function updateCurrency(rateKey: string, idx: number, patch: Partial<CurrencyDraft>) {
+    setRateDrafts((d) => d.map((r) => {
+      if (r.key !== rateKey) return r;
+      const currencies = r.currencies.map((c, i) => i === idx ? { ...c, ...patch } : c);
+      return { ...r, currencies };
+    }));
+  }
+
+  function removeCurrency(rateKey: string, idx: number) {
+    setRateDrafts((d) => d.map((r) => {
+      if (r.key !== rateKey) return r;
+      return { ...r, currencies: r.currencies.filter((_, i) => i !== idx) };
+    }));
+  }
+
   async function saveRates() {
     setRatesSaving(true); setRatesErr(""); setRatesOk("");
     try {
       const payload = rateDrafts.filter((r) => !r.removed).map((r) => ({
-        brand:         r.brand.trim(),
-        slug:          r.slug,
-        ratePerDollar: Number(r.ratePerDollar),
-        isActive:      r.isActive,
+        brand:      r.brand.trim(),
+        slug:       r.slug,
+        isActive:   r.isActive,
+        currencies: r.currencies.map((c) => ({
+          code:        c.code.trim().toUpperCase(),
+          symbol:      c.symbol.trim(),
+          ratePerUnit: Number(c.ratePerUnit),
+          isActive:    c.isActive,
+        })),
       }));
       if (payload.some((r) => !r.brand)) throw new Error("Every row needs a brand name.");
-      if (payload.some((r) => !Number.isFinite(r.ratePerDollar) || r.ratePerDollar < 1)) {
-        throw new Error("Every rate must be at least 1.");
+      if (payload.some((r) => r.currencies.length === 0)) throw new Error("Every brand needs at least one currency.");
+      if (payload.some((r) => r.currencies.some((c) => !c.code || !c.symbol))) throw new Error("Every currency needs a code and symbol.");
+      if (payload.some((r) => r.currencies.some((c) => !Number.isFinite(c.ratePerUnit) || c.ratePerUnit < 1))) {
+        throw new Error("Every currency rate must be at least 1.");
       }
       const res = await fetch("/api/admin/settings/rates", {
         method: "PUT",
@@ -331,12 +392,12 @@ export default function AdminSettingsPage() {
       const data = await res.json();
       if (!data.success) throw new Error(data.message ?? "Failed to save.");
       setRateDrafts((data.rates as Rate[]).map((r) => ({
-        key:           r.id,
-        id:            r.id,
-        brand:         r.brand,
-        slug:          r.slug,
-        ratePerDollar: String(r.ratePerDollar),
-        isActive:      r.isActive,
+        key:        r.id,
+        id:         r.id,
+        brand:      r.brand,
+        slug:       r.slug,
+        isActive:   r.isActive,
+        currencies: r.currencies.map((c) => ({ ...c, ratePerUnit: String(c.ratePerUnit) })),
       })));
       setRatesOk("Gift card rates updated.");
       setTimeout(() => setRatesOk(""), 2500);
@@ -385,6 +446,9 @@ export default function AdminSettingsPage() {
 
   const visibleRates = rateDrafts;
   const activeCount  = rateDrafts.filter((r) => !r.removed && r.isActive).length;
+  const activeCurrencyCount = rateDrafts
+    .filter((r) => !r.removed && r.isActive)
+    .reduce((sum, r) => sum + r.currencies.filter((c) => c.isActive).length, 0);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -465,63 +529,127 @@ export default function AdminSettingsPage() {
       {/* ── Gift card rates ── */}
       <SectionCard
         title="Gift card rates"
-        description={`Per-brand ₦/$ rate shown in the trade flow. ${activeCount} active.`}
+        description={`Per-brand, per-currency ₦ rate shown in the trade flow. ${activeCount} active brands · ${activeCurrencyCount} active currencies.`}
       >
         <div className="space-y-2">
-          {visibleRates.map((r) => (
-            <div
-              key={r.key}
-              className={`flex flex-col sm:grid sm:grid-cols-[1fr_140px_auto_auto] gap-2 sm:items-center p-3 rounded-xl border ${
-                r.removed ? "bg-red-500/5 border-red-500/20 opacity-60" : "bg-slate-800/40 border-slate-700/60"
-              }`}
-            >
-              <input
-                type="text"
-                value={r.brand}
-                onChange={(e) => updateRate(r.key, { brand: e.target.value })}
-                placeholder="Brand name"
-                disabled={r.removed}
-                className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-[13px] text-white placeholder:text-slate-500 outline-none focus:border-blue-500 disabled:opacity-50"
-              />
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-[12px] pointer-events-none">₦/$</span>
-                <input
-                  type="number"
-                  value={r.ratePerDollar}
-                  onChange={(e) => updateRate(r.key, { ratePerDollar: e.target.value })}
-                  placeholder="1000"
-                  disabled={r.removed}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-10 pr-3 py-2 text-[13px] text-white font-semibold outline-none focus:border-blue-500 disabled:opacity-50"
-                />
+          {visibleRates.map((r) => {
+            const isExpanded = expandedKeys.has(r.key);
+            return (
+              <div
+                key={r.key}
+                className={`rounded-xl border overflow-hidden ${
+                  r.removed ? "bg-red-500/5 border-red-500/20 opacity-60" : "bg-slate-800/40 border-slate-700/60"
+                }`}
+              >
+                {/* ── Brand header row ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 p-3">
+                  <input
+                    type="text"
+                    value={r.brand}
+                    onChange={(e) => updateRate(r.key, { brand: e.target.value })}
+                    placeholder="Brand name"
+                    disabled={r.removed}
+                    className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-[13px] text-white placeholder:text-slate-500 outline-none focus:border-blue-500 disabled:opacity-50"
+                  />
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={r.isActive}
+                      disabled={r.removed}
+                      onChange={(e) => updateRate(r.key, { isActive: e.target.checked })}
+                      className="w-4 h-4 rounded accent-blue-600"
+                    />
+                    <span className="text-[12px] text-slate-300">Active</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => toggleExpanded(r.key)}
+                    disabled={r.removed}
+                    className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-400 hover:text-white px-2 py-1.5 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-40"
+                  >
+                    <svg className={`w-3.5 h-3.5 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                    {r.currencies.filter(c => c.isActive).length} {r.currencies.filter(c => c.isActive).length === 1 ? "currency" : "currencies"}
+                  </button>
+                  {r.removed ? (
+                    <button onClick={() => restoreRate(r.key)} className="text-[12px] font-semibold text-blue-400 hover:text-blue-300 px-3 py-1.5">
+                      Restore
+                    </button>
+                  ) : (
+                    <button onClick={() => removeRate(r.key)} className="text-[12px] font-semibold text-red-400 hover:text-red-300 px-3 py-1.5" aria-label="Remove brand">
+                      Remove
+                    </button>
+                  )}
+                </div>
+
+                {/* ── Currencies sub-table (expanded) ── */}
+                {isExpanded && !r.removed && (
+                  <div className="border-t border-slate-700/60 px-3 pb-3 pt-2 space-y-2">
+                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2">Currencies</p>
+                    {r.currencies.map((c, idx) => (
+                      <div key={idx} className="flex flex-col sm:grid sm:grid-cols-[80px_80px_1fr_auto_auto] gap-2 sm:items-center p-2 rounded-lg bg-slate-800/60 border border-slate-700/40">
+                        <input
+                          type="text"
+                          value={c.code}
+                          onChange={(e) => updateCurrency(r.key, idx, { code: e.target.value.toUpperCase().slice(0, 5) })}
+                          placeholder="USD"
+                          maxLength={5}
+                          className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-[12px] text-white font-mono uppercase placeholder:text-slate-600 outline-none focus:border-blue-500"
+                        />
+                        <input
+                          type="text"
+                          value={c.symbol}
+                          onChange={(e) => updateCurrency(r.key, idx, { symbol: e.target.value.slice(0, 4) })}
+                          placeholder="$"
+                          maxLength={4}
+                          className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-[12px] text-white placeholder:text-slate-600 outline-none focus:border-blue-500"
+                        />
+                        <div className="relative">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-[11px] pointer-events-none select-none">₦/unit</span>
+                          <input
+                            type="number"
+                            value={c.ratePerUnit}
+                            onChange={(e) => updateCurrency(r.key, idx, { ratePerUnit: e.target.value })}
+                            placeholder="1000"
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-14 pr-2 py-1.5 text-[12px] text-white font-semibold outline-none focus:border-blue-500"
+                          />
+                        </div>
+                        <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={c.isActive}
+                            onChange={(e) => updateCurrency(r.key, idx, { isActive: e.target.checked })}
+                            className="w-3.5 h-3.5 rounded accent-blue-600"
+                          />
+                          <span className="text-[11px] text-slate-400">On</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => removeCurrency(r.key, idx)}
+                          disabled={r.currencies.length <= 1}
+                          className="text-[11px] font-semibold text-red-400 hover:text-red-300 px-2 py-1 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="Remove currency"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => addCurrency(r.key)}
+                      className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-blue-400 hover:text-blue-300 px-2 py-1.5 rounded-lg hover:bg-slate-700 transition-colors"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add currency
+                    </button>
+                  </div>
+                )}
               </div>
-              <label className="flex items-center gap-2 cursor-pointer select-none sm:justify-self-center">
-                <input
-                  type="checkbox"
-                  checked={r.isActive}
-                  disabled={r.removed}
-                  onChange={(e) => updateRate(r.key, { isActive: e.target.checked })}
-                  className="w-4 h-4 rounded accent-blue-600"
-                />
-                <span className="text-[12px] text-slate-300">Active</span>
-              </label>
-              {r.removed ? (
-                <button
-                  onClick={() => restoreRate(r.key)}
-                  className="text-[12px] font-semibold text-blue-400 hover:text-blue-300 px-3 py-1.5"
-                >
-                  Restore
-                </button>
-              ) : (
-                <button
-                  onClick={() => removeRate(r.key)}
-                  className="text-[12px] font-semibold text-red-400 hover:text-red-300 px-3 py-1.5"
-                  aria-label="Remove brand"
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <button

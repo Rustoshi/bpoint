@@ -11,11 +11,18 @@ function requireAdmin(req: NextRequest): boolean {
   catch { return false; }
 }
 
+type CurrencyInput = {
+  code: string;
+  symbol: string;
+  ratePerUnit: number;
+  isActive?: boolean;
+};
+
 type RateInput = {
   brand: string;
   slug?: string;
-  ratePerDollar: number;
   isActive?: boolean;
+  currencies: CurrencyInput[];
 };
 
 function slugify(s: string): string {
@@ -35,7 +42,14 @@ export async function PUT(req: NextRequest) {
   }
 
   // ── Validate + normalise ────────────────────────────────────────────────
-  const cleaned: { brand: string; slug: string; ratePerDollar: number; isActive: boolean }[] = [];
+  type CleanedRate = {
+    brand: string;
+    slug: string;
+    isActive: boolean;
+    currencies: { code: string; symbol: string; ratePerUnit: number; isActive: boolean }[];
+    ratePerDollar: number;
+  };
+  const cleaned: CleanedRate[] = [];
   const seenSlugs = new Set<string>();
 
   for (const r of body.rates) {
@@ -52,16 +66,32 @@ export async function PUT(req: NextRequest) {
     }
     seenSlugs.add(slug);
 
-    const rate = Number(r.ratePerDollar);
-    if (!Number.isFinite(rate) || rate < 1) {
-      return NextResponse.json({ success: false, message: `Rate for "${brand}" must be at least 1.` }, { status: 400 });
+    if (!Array.isArray(r.currencies) || r.currencies.length === 0) {
+      return NextResponse.json({ success: false, message: `"${brand}" must have at least one currency.` }, { status: 400 });
     }
+
+    const currencies: CleanedRate["currencies"] = [];
+    for (const c of r.currencies) {
+      const code = String(c.code ?? "").trim().toUpperCase();
+      const symbol = String(c.symbol ?? "").trim();
+      const rate = Number(c.ratePerUnit);
+      if (!code) return NextResponse.json({ success: false, message: `Currency code missing for "${brand}".` }, { status: 400 });
+      if (!symbol) return NextResponse.json({ success: false, message: `Symbol missing for ${code} on "${brand}".` }, { status: 400 });
+      if (!Number.isFinite(rate) || rate < 1) {
+        return NextResponse.json({ success: false, message: `Rate for ${code} on "${brand}" must be at least 1.` }, { status: 400 });
+      }
+      currencies.push({ code, symbol, ratePerUnit: rate, isActive: c.isActive !== false });
+    }
+
+    // Keep legacy ratePerDollar in sync with the USD entry for fallback compat
+    const usdEntry = currencies.find((c) => c.code === "USD");
 
     cleaned.push({
       brand,
       slug,
-      ratePerDollar: rate,
       isActive: r.isActive !== false,
+      currencies,
+      ratePerDollar: usdEntry?.ratePerUnit ?? currencies[0].ratePerUnit,
     });
   }
 
@@ -89,11 +119,13 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({
       success: true,
       rates: rates.map((r) => ({
-        id:            String(r._id),
-        brand:         r.brand,
-        slug:          r.slug,
-        ratePerDollar: r.ratePerDollar,
-        isActive:      r.isActive,
+        id:         String(r._id),
+        brand:      r.brand,
+        slug:       r.slug,
+        isActive:   r.isActive,
+        currencies: (r.currencies && r.currencies.length > 0)
+          ? r.currencies
+          : [{ code: "USD", symbol: "$", ratePerUnit: r.ratePerDollar ?? 1000, isActive: true }],
       })),
     });
   } catch (err) {

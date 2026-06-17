@@ -29,7 +29,8 @@ const BRANDS = [
 
 type BrandSlug = (typeof BRANDS)[number]["slug"];
 
-interface RateMap { [slug: string]: number }
+interface CurrencyRate { code: string; symbol: string; ratePerUnit: number; isActive: boolean; }
+interface RateMap { [slug: string]: CurrencyRate[] }
 
 // ─── Issue types ───────────────────────────────────────────────────────────────
 
@@ -218,7 +219,7 @@ export default function RecoverPage() {
       .then((d) => {
         if (d.success) {
           const map: RateMap = {};
-          for (const r of d.rates) map[r.slug] = r.ratePerDollar;
+          for (const r of d.rates) map[r.slug] = r.currencies;
           setRates(map);
         }
       })
@@ -244,6 +245,7 @@ export default function RecoverPage() {
 
   // ── Form state ──
   const [selectedSlug, setSelectedSlug] = useState<BrandSlug | null>(null);
+  const [selectedCurrencyCode, setSelectedCurrencyCode] = useState<string>("USD");
   const [brandSearch, setBrandSearch] = useState("");
   const [cardValue, setCardValue] = useState("");
   const [issueType, setIssueType] = useState<IssueTypeValue | null>(null);
@@ -265,15 +267,31 @@ export default function RecoverPage() {
   const receiptInputRef = useRef<HTMLInputElement>(null);
 
   const selectedBrand = BRANDS.find((b) => b.slug === selectedSlug) ?? null;
-  const currentRate = selectedSlug ? (rates[selectedSlug] ?? 1000) : 1000;
+  const activeCurrencies: CurrencyRate[] = selectedSlug
+    ? (rates[selectedSlug] ?? []).filter((c) => c.isActive)
+    : [];
+  const defaultCurrency: CurrencyRate = { code: "USD", symbol: "$", ratePerUnit: 1000, isActive: true };
+  const selectedCurrency: CurrencyRate =
+    activeCurrencies.find((c) => c.code === selectedCurrencyCode) ??
+    activeCurrencies[0] ??
+    defaultCurrency;
   const valueNum = parseFloat(cardValue) || 0;
-  const payoutNGN = valueNum * currentRate;
+  const payoutNGN = valueNum * selectedCurrency.ratePerUnit;
   const filteredBrands = BRANDS.filter((b) =>
     b.name.toLowerCase().includes(brandSearch.toLowerCase())
   );
 
   const fmtNGN = (n: number) =>
     new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", minimumFractionDigits: 0 }).format(n);
+
+  // When brand changes, keep selected currency if available, else reset to first active
+  useEffect(() => {
+    if (!selectedSlug) return;
+    const available = (rates[selectedSlug] ?? []).filter((c) => c.isActive);
+    if (available.length > 0 && !available.find((c) => c.code === selectedCurrencyCode)) {
+      setSelectedCurrencyCode(available[0].code);
+    }
+  }, [selectedSlug, rates, selectedCurrencyCode]);
 
   // Revoke previews on unmount
   useEffect(() => {
@@ -321,8 +339,8 @@ export default function RecoverPage() {
   function validate() {
     const errs: Record<string, string> = {};
     if (!selectedSlug) errs.brand = "Please select a gift card brand.";
-    if (!cardValue || valueNum < 1) errs.cardValue = "Enter a valid card value (minimum $1).";
-    if (valueNum > 10000) errs.cardValue = "Card value cannot exceed $10,000.";
+    if (!cardValue || valueNum < 1) errs.cardValue = `Enter a valid card value (minimum ${selectedCurrency.symbol}1).`;
+    if (valueNum > 10000) errs.cardValue = `Card value cannot exceed ${selectedCurrency.symbol}10,000.`;
     if (!issueType) errs.issueType = "Please select the type of issue.";
     if (issueDescription.trim().length < 10) errs.issueDescription = "Please describe the issue in at least 10 characters.";
     if (images.length === 0) errs.images = "At least one card photo is required.";
@@ -366,7 +384,8 @@ export default function RecoverPage() {
         body: JSON.stringify({
           brandSlug: selectedSlug,
           brand: selectedBrand?.name ?? selectedSlug,
-          cardValueUSD: valueNum,
+          cardValue: valueNum,
+          currencyCode: selectedCurrency.code,
           issueType,
           issueDescription: issueDescription.trim(),
           imageUrls: imageAssets.map((a) => a.url),
@@ -486,7 +505,8 @@ export default function RecoverPage() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 mb-5">
                 {filteredBrands.map((brand) => {
-                  const rate = ratesLoading ? null : (rates[brand.slug] ?? 1000);
+                  const brandCurrencies = ratesLoading ? [] : (rates[brand.slug] ?? []).filter(c => c.isActive);
+                  const displayRate = brandCurrencies[0];
                   const isSelected = selectedSlug === brand.slug;
                   return (
                     <button
@@ -503,8 +523,8 @@ export default function RecoverPage() {
                         <p className={`text-[12px] font-bold truncate leading-tight ${isSelected ? "text-violet-700" : "text-slate-700"}`}>
                           {brand.name}
                         </p>
-                        {rate !== null && (
-                          <p className="text-[10px] text-slate-400 mt-0.5">₦{rate.toLocaleString()}/$</p>
+                        {displayRate && (
+                          <p className="text-[10px] text-slate-400 mt-0.5">₦{displayRate.ratePerUnit.toLocaleString()}/{displayRate.symbol}</p>
                         )}
                       </div>
                       {isSelected && (
@@ -521,13 +541,36 @@ export default function RecoverPage() {
               </div>
               {errors.brand && <p className="mb-3 text-[12px] text-red-500">⚠ {errors.brand}</p>}
 
+              {/* Currency selector */}
+              {activeCurrencies.length > 1 && (
+                <div className="flex flex-col gap-1.5 mb-2">
+                  <label className="text-[13px] font-semibold text-slate-700">Card Currency</label>
+                  <div className="flex flex-wrap gap-2">
+                    {activeCurrencies.map((c) => (
+                      <button
+                        key={c.code}
+                        type="button"
+                        onClick={() => { setSelectedCurrencyCode(c.code); setErrors((e) => ({ ...e, cardValue: "" })); }}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[13px] font-semibold transition-all
+                          ${selectedCurrency.code === c.code
+                            ? "bg-violet-600 text-white border-violet-600 shadow-sm"
+                            : "bg-white text-slate-600 border-slate-200 hover:border-violet-400"}`}
+                      >
+                        <span>{c.symbol}</span>
+                        <span>{c.code}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Card value */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[13px] font-semibold text-slate-700">
-                  Card Value (USD) <span className="text-red-400">*</span>
+                  Card Value ({selectedCurrency.code}) <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] font-bold text-slate-400">$</span>
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] font-bold text-slate-400">{selectedCurrency.symbol}</span>
                   <input
                     type="number"
                     min={1}
@@ -543,7 +586,7 @@ export default function RecoverPage() {
                 {errors.cardValue && <p className="text-[12px] text-red-500">⚠ {errors.cardValue}</p>}
                 {valueNum > 0 && selectedSlug && (
                   <p className="text-[12px] text-emerald-600 font-semibold">
-                    Payout if recovered: {fmtNGN(payoutNGN)} at ₦{currentRate.toLocaleString()}/$
+                    Payout if recovered: {fmtNGN(payoutNGN)} at ₦{selectedCurrency.ratePerUnit.toLocaleString()}/{selectedCurrency.symbol}
                   </p>
                 )}
               </div>

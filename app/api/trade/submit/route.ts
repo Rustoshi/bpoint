@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
-import GiftCardRate from "@/lib/models/GiftCardRate";
+import GiftCardRate, { getCurrencyRate } from "@/lib/models/GiftCardRate";
 import TradeOrder from "@/lib/models/TradeOrder";
 import User from "@/lib/models/User";
 import { verifyAccessToken } from "@/lib/jwt";
@@ -34,7 +34,9 @@ export async function POST(req: NextRequest) {
 
     // ── Parse body ────────────────────────────────────────────
     const body = await req.json();
-    const { brandSlug, cardValueUSD, submissionType, eCode, ePin, imageUrls } = body;
+    const { brandSlug, cardValue: cardValueRaw, cardValueUSD, submissionType, eCode, ePin, imageUrls, currencyCode: rawCurrency } = body;
+    const cardValueInput = cardValueRaw ?? cardValueUSD;
+    const currencyCode = (typeof rawCurrency === "string" && rawCurrency.trim()) ? rawCurrency.trim().toUpperCase() : "USD";
 
     // ── Validate ──────────────────────────────────────────────
     if (!brandSlug || typeof brandSlug !== "string") {
@@ -44,10 +46,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const value = Number(cardValueUSD);
+    const value = Number(cardValueInput);
     if (!value || value < 1 || value > 10000) {
       return NextResponse.json(
-        { success: false, message: "Card value must be between $1 and $10,000." },
+        { success: false, message: "Card value must be between 1 and 10,000 in the selected currency." },
         { status: 400 }
       );
     }
@@ -80,7 +82,9 @@ export async function POST(req: NextRequest) {
 
     // ── Fetch rate ────────────────────────────────────────────
     const rateDoc = await GiftCardRate.findOne({ slug: brandSlug, isActive: true });
-    const rateSnapshot = rateDoc?.ratePerDollar ?? 1000;
+    const currencyRate = rateDoc ? getCurrencyRate(rateDoc, currencyCode) : null;
+    const rateSnapshot = currencyRate?.ratePerUnit ?? 1000;
+    const currencySymbol = currencyRate?.symbol ?? "$";
     const payoutNGN = value * rateSnapshot;
 
     // ── Fetch user bank details ───────────────────────────────
@@ -104,7 +108,9 @@ export async function POST(req: NextRequest) {
       userId,
       brand: brandDoc?.brand ?? brandSlug,
       brandSlug,
-      cardValueUSD: value,
+      cardValue: value,
+      currencyCode,
+      currencySymbol,
       submissionType,
       eCode: submissionType === "ecode" ? eCode.trim() : undefined,
       ePin: ePin?.trim() || undefined,
@@ -126,6 +132,8 @@ export async function POST(req: NextRequest) {
         orderId: order._id,
         payoutNGN,
         rateSnapshot,
+        currencyCode,
+        currencySymbol,
       },
       { status: 201 }
     );
