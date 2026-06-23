@@ -105,8 +105,8 @@ export async function GET(req: NextRequest) {
     const userMap = new Map(users.map((u) => [u._id.toString(), u]));
 
     const all = [
-      ...normalise(trades      as AnyDoc[], "Trade",        (o) => `${o.brand} $${o.cardValueUSD}`, (o) => o.payoutNGN,   userMap),
-      ...normalise(recovery    as AnyDoc[], "Recovery",     (o) => `${o.brand} $${o.cardValueUSD} — ${o.issueType}`, (o) => o.payoutNGN, userMap),
+      ...normalise(trades      as AnyDoc[], "Trade",        (o) => `${o.brand} ${o.currencySymbol ?? "$"}${o.cardValue ?? o.cardValueUSD}`, (o) => o.payoutNGN,   userMap),
+      ...normalise(recovery    as AnyDoc[], "Recovery",     (o) => `${o.brand} ${o.currencySymbol ?? "$"}${o.cardValue ?? o.cardValueUSD} — ${o.issueType}`, (o) => o.payoutNGN, userMap),
       ...normalise(consignment as AnyDoc[], "Consignment",  (o) => o.boxDescription?.slice(0, 80),  (o) => o.feeChargedNGN, userMap),
       ...normalise(editing     as AnyDoc[], "Editing",      (o) => o.editDescription?.slice(0, 80), (o) => o.feeChargedNGN, userMap),
       ...normalise(lipsync     as AnyDoc[], "Lipsync",      (o) => o.lipsyncDescription?.slice(0, 80), (o) => o.feeChargedNGN, userMap),

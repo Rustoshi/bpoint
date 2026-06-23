@@ -184,8 +184,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     }));
 
     const recentOrders = [
-      ...normalise(recentTrades      as AnyDoc[], "Trade",        "trade",       (o) => `${o.brand} $${o.cardValueUSD}`,                (o) => o.payoutNGN),
-      ...normalise(recentRecovery    as AnyDoc[], "Recovery",     "recovery",    (o) => `${o.brand} $${o.cardValueUSD} — ${o.issueType}`, (o) => o.payoutNGN),
+      ...normalise(recentTrades      as AnyDoc[], "Trade",        "trade",       (o) => `${o.brand} ${o.currencySymbol ?? "$"}${o.cardValue ?? o.cardValueUSD}`,                (o) => o.payoutNGN),
+      ...normalise(recentRecovery    as AnyDoc[], "Recovery",     "recovery",    (o) => `${o.brand} ${o.currencySymbol ?? "$"}${o.cardValue ?? o.cardValueUSD} — ${o.issueType}`, (o) => o.payoutNGN),
       ...normalise(recentConsignment as AnyDoc[], "Consignment",  "consignment", (o) => o.boxDescription?.slice(0, 60) ?? "Consignment",(o) => o.feeChargedNGN),
       ...normalise(recentEditing     as AnyDoc[], "Editing",      "editing",     (o) => o.editDescription?.slice(0, 60) ?? "Editing",   (o) => o.feeChargedNGN),
       ...normalise(recentLipsync     as AnyDoc[], "Lipsync",      "lipsync",     (o) => o.lipsyncDescription?.slice(0, 60) ?? "Lipsync",(o) => o.feeChargedNGN),

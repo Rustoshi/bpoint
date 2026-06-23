@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
     const rows = requests.map((r) => ({
       id: String(r._id).slice(-6).toUpperCase(),
       brand: r.brand,
-      cardValue: `$${r.cardValueUSD}`,
+      cardValue: `${r.currencySymbol ?? "$"}${r.cardValue ?? (r as { cardValueUSD?: number }).cardValueUSD ?? 0}`,
       issueType: formatIssueType(r.issueType),
       rate: `₦${(r.rateSnapshot ?? 0).toLocaleString()}`,
       payout: fmtNGN(r.payoutNGN ?? 0),

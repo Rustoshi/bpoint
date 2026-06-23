@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     const rows = orders.map((o) => ({
       id: String(o._id).slice(-6).toUpperCase(),
       brand: o.brand,
-      amount: `$${o.cardValueUSD}`,
+      amount: `${o.currencySymbol ?? "$"}${o.cardValue ?? (o as { cardValueUSD?: number }).cardValueUSD ?? 0}`,
       rate: `₦${o.rateSnapshot.toLocaleString()}`,
       payout: fmtNGN(o.payoutNGN),
       date: fmt.format(new Date(o.createdAt)),

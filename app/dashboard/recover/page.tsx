@@ -833,11 +833,15 @@ export default function RecoverPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[12px] text-slate-400 font-semibold">Card Value</span>
-                  <span className="text-[13px] font-semibold text-slate-800">{valueNum > 0 ? `$${valueNum}` : "—"}</span>
+                  <span className="text-[13px] font-semibold text-slate-800">{valueNum > 0 ? `${selectedCurrency.symbol}${valueNum}` : "—"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-slate-400 font-semibold">Currency</span>
+                  <span className="text-[13px] font-semibold text-slate-800">{selectedCurrency.code}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[12px] text-slate-400 font-semibold">Rate</span>
-                  <span className="text-[13px] font-semibold text-slate-800">₦{currentRate.toLocaleString()} / $1</span>
+                  <span className="text-[13px] font-semibold text-slate-800">₦{selectedCurrency.ratePerUnit.toLocaleString()} / {selectedCurrency.symbol}1</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[12px] text-slate-400 font-semibold">Issue</span>

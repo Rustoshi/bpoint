@@ -402,7 +402,8 @@ function AdminOrderDetailPageInner() {
         {type === "trade" && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <Field label="Brand" value={order.brand} />
-            <Field label="Card value" value={`$${order.cardValueUSD}`} />
+            <Field label="Card value" value={`${order.currencySymbol ?? "$"}${order.cardValue ?? order.cardValueUSD}`} />
+            <Field label="Currency" value={order.currencyCode ?? "USD"} />
             <Field label="Rate snapshot" value={order.rateSnapshot} />
             <Field label="Payout (₦)" value={order.payoutNGN?.toLocaleString()} />
             <Field label="Submission" value={order.submissionType} />
@@ -428,7 +429,8 @@ function AdminOrderDetailPageInner() {
         {type === "recovery" && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <Field label="Brand" value={order.brand} />
-            <Field label="Card value" value={`$${order.cardValueUSD}`} />
+            <Field label="Card value" value={`${order.currencySymbol ?? "$"}${order.cardValue ?? order.cardValueUSD}`} />
+            <Field label="Currency" value={order.currencyCode ?? "USD"} />
             <Field label="Issue type" value={order.issueType} />
             <Field label="Rate snapshot" value={order.rateSnapshot} />
             <Field label="Payout (₦)" value={order.payoutNGN?.toLocaleString()} />
